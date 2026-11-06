@@ -1,0 +1,4 @@
+interface:
+  display_name: "Technical Visualization"
+  short_description: "Editable engineering and quantitative research visuals"
+  default_prompt: "Use $technical-visualization to turn my data or system specification into reproducible, editable figures with evidence and visual QA."

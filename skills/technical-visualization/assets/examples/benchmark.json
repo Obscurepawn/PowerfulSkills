@@ -1,0 +1,15 @@
+{
+  "title": "Latency under a hypothetical worker sweep",
+  "source": "Hand-authored synthetic fixture for demonstrating the plotting pipeline; no system was benchmarked.",
+  "data_kind": "synthetic",
+  "metric": "Run median latency",
+  "unit": "ms",
+  "x_label": "Workers",
+  "statistic": "median",
+  "interval": "range",
+  "independent_runs": false,
+  "width": 8,
+  "height": 5,
+  "font_size": 10,
+  "font_family": "DejaVu Sans"
+}

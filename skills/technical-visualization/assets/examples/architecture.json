@@ -1,0 +1,25 @@
+{
+  "title": "Request and background job paths",
+  "data_kind": "proposed",
+  "source": "Illustrative design supplied with this skill; no implementation has been inspected.",
+  "rankdir": "LR",
+  "font_family": "DejaVu Sans",
+  "font_size": 11,
+  "boundaries": [
+    {"id": "application", "label": "Application services — process boundaries omitted"},
+    {"id": "storage", "label": "Persistent infrastructure"}
+  ],
+  "nodes": [
+    {"id": "client", "label": "Client"},
+    {"id": "api", "label": "API service", "boundary": "application"},
+    {"id": "worker", "label": "Job worker", "boundary": "application"},
+    {"id": "queue", "label": "Job queue", "boundary": "storage"},
+    {"id": "database", "label": "Database", "boundary": "storage"}
+  ],
+  "edges": [
+    {"from": "client", "to": "api", "label": "Submit request", "kind": "sync"},
+    {"from": "api", "to": "queue", "label": "Enqueue job", "kind": "async"},
+    {"from": "queue", "to": "worker", "label": "Deliver job", "kind": "async"},
+    {"from": "worker", "to": "database", "label": "Write result", "kind": "data"}
+  ]
+}

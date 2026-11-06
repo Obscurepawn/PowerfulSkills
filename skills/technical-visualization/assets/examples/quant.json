@@ -1,0 +1,15 @@
+{
+  "title": "Return-path diagnostics",
+  "source": "Hand-authored synthetic return paths for testing, not market observations or a backtest.",
+  "data_kind": "synthetic",
+  "return_basis": "net",
+  "frequency": "trading-day",
+  "cost_note": "Hypothetical net returns supplied directly; no fee model is fitted or applied by the plotter.",
+  "rolling_window": 5,
+  "periods_per_year": 252,
+  "risk_free_per_period": 0,
+  "width": 8,
+  "height": 8,
+  "font_size": 10,
+  "font_family": "DejaVu Sans"
+}

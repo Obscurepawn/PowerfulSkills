@@ -9,6 +9,7 @@
 | [clear-answer-writing](skills/clear-answer-writing/SKILL.md) | 清晰回答与自然写作 | 适用于回答、原创写作、润色、翻译和总结，保留事实、限定条件与作者声音。 |
 | [personal-project-engineering](skills/personal-project-engineering/SKILL.md) | 个人项目工程实践 | 编写和维护 README、功能规格与 AGENTS.md，核对文档与实现，并按规格推进开发、测试和验收。 |
 | [vibe-tla](skills/vibe-tla/SKILL.md) | 基于代码的形式化验证 | 使用 TLA+ / TLC 检查并发、顺序、恢复与持久性问题，区分候选问题与已确认缺陷。 |
+| [technical-visualization](skills/technical-visualization/SKILL.md) | 工程与量化研究可视化 | 生成可编辑、可重现的架构图、性能基准图和量化研究图，保留数据来源、绘图源码与质量检查。 |
 
 每个技能保存在独立目录中，以 `SKILL.md` 为入口；引用资料、脚本和手册随技能一起保留。
 
@@ -23,6 +24,7 @@ mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 cp -R skills/clear-answer-writing "${CODEX_HOME:-$HOME/.codex}/skills/"
 cp -R skills/personal-project-engineering "${CODEX_HOME:-$HOME/.codex}/skills/"
 cp -R skills/vibe-tla "${CODEX_HOME:-$HOME/.codex}/skills/"
+python3 skills/technical-visualization/scripts/install_skill.py
 ```
 
 如果目标目录中已有同名技能，请先比较或备份，避免直接覆盖本地修改。安装后重启 Codex，使其重新发现技能。
@@ -32,6 +34,7 @@ cp -R skills/vibe-tla "${CODEX_HOME:-$HOME/.codex}/skills/"
 - **clear-answer-writing**：要求 Agent 按该技能进行回答、写作或润色；若希望每次都使用，可在自己的 `AGENTS.md` 中加入相应要求。长文还需遵循[长文写作规则](skills/clear-answer-writing/references/long-form.md)，并运行 `python3 skills/clear-answer-writing/scripts/ai_style_check.py <文件.md>` 检查表达模式的密度。
 - **personal-project-engineering**：说明要编写或审阅的文档，或要按规格实现的功能；技能提供 README、功能规格和 AGENTS.md 的指南与模板，以及从需求到验证的工程工作流。
 - **vibe-tla**：先阅读[中文手册](skills/vibe-tla/MANUAL.zh-CN.md)或[英文手册](skills/vibe-tla/MANUAL.md)，再按技能说明初始化目标仓库并运行检查。TLC 工具链的安装要求见[环境说明](skills/vibe-tla/references/tlc-setup.md)。
+- **technical-visualization**：提供系统规格、代码或 CSV 数据，生成 SVG/PDF、预览、图注及重现包。Python、Graphviz 依赖和运行示例见[安装与使用说明](skills/technical-visualization/INSTALL.md)；示例数据明确标记为合成数据，统计结论遵循输入数据的证据范围。
 
 ## 维护
 
