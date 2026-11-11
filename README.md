@@ -15,19 +15,24 @@
 
 ## 安装到 Codex
 
-克隆仓库，将需要的技能目录复制到 `${CODEX_HOME:-$HOME/.codex}/skills/`：
+准备 Git、Python 3，以及 Bash 或兼容的 shell。按[官方技能文档](https://learn.chatgpt.com/docs/build-skills)，用户级技能放在 `~/.agents/skills/`。如果目标目录中已有同名技能，先比较或备份，避免覆盖本地修改。
+
+克隆仓库后，选择需要的技能安装：
 
 ```bash
 git clone https://github.com/Obscurepawn/PowerfulSkills.git
 cd PowerfulSkills
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-cp -R skills/clear-answer-writing "${CODEX_HOME:-$HOME/.codex}/skills/"
-cp -R skills/personal-project-engineering "${CODEX_HOME:-$HOME/.codex}/skills/"
-cp -R skills/vibe-tla "${CODEX_HOME:-$HOME/.codex}/skills/"
-python3 skills/technical-visualization/scripts/install_skill.py
+mkdir -p "$HOME/.agents/skills"
+cp -R skills/clear-answer-writing "$HOME/.agents/skills/"
+cp -R skills/personal-project-engineering "$HOME/.agents/skills/"
+cp -R skills/vibe-tla "$HOME/.agents/skills/"
+python3 skills/technical-visualization/scripts/install_skill.py \
+  --dest "$HOME/.agents/skills/technical-visualization"
+python3 skills/technical-visualization/scripts/install_skill.py --check \
+  --dest "$HOME/.agents/skills/technical-visualization"
 ```
 
-如果目标目录中已有同名技能，请先比较或备份，避免直接覆盖本地修改。安装后重启 Codex，使其重新发现技能。
+如果你的环境使用 `${CODEX_HOME:-$HOME/.codex}/skills/`，将上述目标路径统一替换为该目录；安装器未传 `--dest` 时仍使用这一默认位置。只保留实际使用的一处安装。Codex 会自动发现技能变化；未显示时再重启。
 
 ## 使用
 
