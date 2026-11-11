@@ -36,7 +36,7 @@ python3 skills/technical-visualization/scripts/install_skill.py --check \
 
 ## 使用
 
-- **clear-answer-writing**：要求 Agent 按该技能进行回答、写作或润色；若希望每次都使用，可在自己的 `AGENTS.md` 中加入相应要求。长文还需遵循[长文写作规则](skills/clear-answer-writing/references/long-form.md)，并运行 `python3 skills/clear-answer-writing/scripts/ai_style_check.py <文件.md>` 检查表达模式的密度。
+- **clear-answer-writing**：要求 Agent 按该技能进行回答、写作或润色；若希望每次都使用，可在自己的 `AGENTS.md` 中加入相应要求。长文还需遵循[长文写作规则](skills/clear-answer-writing/references/long-form.md)，并运行检查脚本。技能文件中的检查示例仍写为 `~/.codex/skills/clear-answer-writing/scripts/ai_style_check.py`；按上文安装到 `.agents` 后，使用 `python3 "$HOME/.agents/skills/clear-answer-writing/scripts/ai_style_check.py" <文件.md>`。安装到其他目录时同样替换为实际路径。
 - **personal-project-engineering**：说明要编写或审阅的文档，或要按规格实现的功能；技能提供 README、功能规格和 AGENTS.md 的指南与模板，以及从需求到验证的工程工作流。
 - **vibe-tla**：先阅读[中文手册](skills/vibe-tla/MANUAL.zh-CN.md)或[英文手册](skills/vibe-tla/MANUAL.md)，再按技能说明初始化目标仓库并运行检查。TLC 工具链的安装要求见[环境说明](skills/vibe-tla/references/tlc-setup.md)。
 - **technical-visualization**：提供系统规格、代码或 CSV 数据，生成 SVG/PDF、预览、图注及重现包。Python、Graphviz 依赖和运行示例见[安装与使用说明](skills/technical-visualization/INSTALL.md)；示例数据明确标记为合成数据，统计结论遵循输入数据的证据范围。
