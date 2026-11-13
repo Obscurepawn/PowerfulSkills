@@ -21,7 +21,10 @@ class InstallTests(unittest.TestCase):
         self.dest = self.root / 'installed'
 
     def test_full_directory_copy_and_check(self):
+        (self.source / 'tests').mkdir()
+        (self.source / 'tests' / 'test_dummy.py').write_text('assert True\n')
         install(self.source, self.dest)
+        self.assertFalse((self.dest / 'tests').exists())
         self.assertEqual(inventory(self.source), inventory(self.dest))
         self.assertIn('verified', install(self.source, self.dest, check=True))
 

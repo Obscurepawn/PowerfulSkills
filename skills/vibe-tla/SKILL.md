@@ -1,20 +1,13 @@
 ---
 name: vibe-tla
 description: >-
-  Find real concurrency, durability, and ordering bugs in a codebase by writing
-  code-faithful TLA+ specifications, model-checking them with TLC, and reporting each
-  violation as a fix-ready bug report. Self-contained and project-agnostic: it keeps its
-  own per-repo workspace and long-term memory, so it works on any repository with no
-  external setup. Use it whenever the user wants to formally verify, model-check, or
-  TLA+/TLC a subsystem; hunt for races, lost updates, deadlocks, stale reads, broken
-  invariants, or quorum, replication, and recovery bugs; or reason about whether an
-  interleaving can violate a property. Commands: init sets up the workspace and TLC
-  toolchain; check runs the full learn-spec-check-triage-report loop on a component (named
-  exactly or described fuzzily — it resolves an ambiguous target itself); sync
-  detects model drift; resume finishes an interrupted run; status shows the ledger;
-  coverage reports fidelity and TLC coverage; effort tunes how exhaustively to explore.
-  Prefer this skill whenever the user mentions TLA+, TLC, model checking, or formal
-  verification.
+  Find real concurrency, durability, replication, recovery, and ordering bugs in any
+  codebase by writing code-faithful TLA+ specifications, model-checking them with TLC,
+  and triaging violations into honest candidate vs confirmed bug reports (形式化验证 /
+  模型检验). Self-contained with per-repo long-term memory and commands for init, check,
+  review, fix, sync, resume, advance, status, coverage, and effort. Use whenever the
+  user mentions TLA+, TLC, model checking, formal verification, or wants mechanical
+  interleaving checks for races, lost updates, stale reads, deadlocks, or quorum bugs.
 ---
 
 # vibe-tla — code-faithful TLA+ bug-hunting for any repo
@@ -79,9 +72,10 @@ command; route it to its procedure in `references/commands.md`:
 1. If the target workspace's `config.env` records `REPO_ROOT` from a prior `init`, honor it.
    (In a standalone install you *locate* that workspace via step 3's `active.env` first;
    `config.env` then confirms the resolution — the steps are precedence, not lookup order.)
-2. **Embedded install** (skill at `<repo>/.claude/skills/vibe-tla/`) ⇒ `<repo-root>` = the
-   project that owns that `.claude/` — the install location (follow the symlink's *logical*
-   path, not its target), never the working directory or a sibling-holding parent.
+2. **Embedded install** (skill at `<repo>/.agents/skills/vibe-tla/` or
+   `<repo>/.claude/skills/vibe-tla/`, or `.agent/skills/` / `.codex/skills/`) ⇒ `<repo-root>` =
+   the project that owns that agent directory — the install location (follow the symlink's
+   *logical* path, not its target), never the working directory or a sibling-holding parent.
 3. **Standalone install** (user-global / agent skill store, no owning project) ⇒ `<repo-root>`
    = the active clone in `${VIBE_TLA_HOME:-$HOME/.vibe-tla}/active.env`
    (`scripts/get_repo.sh active`); if none is recorded, tell the user to run

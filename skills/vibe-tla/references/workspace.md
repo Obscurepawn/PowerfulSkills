@@ -12,10 +12,11 @@ stays **within `<repo-root>`** — it never reads or writes a sibling repo.
 
 `<repo-root>` depends on the **install shape** (SKILL.md fixes the exact rule):
 
-- **Embedded** — the skill is installed at `<repo>/.claude/skills/vibe-tla/`, so
-  `<repo-root>` is the project that owns that `.claude/` (workspace at `<repo>/tla/`), never
-  the working directory or a parent that just holds sibling repos. The workspace lives
-  inside the repo you already have.
+- **Embedded** — the skill is installed inside a project's agent customization directory
+  (`<repo>/.agents/skills/vibe-tla/`, `<repo>/.claude/skills/vibe-tla/`, `.agent/skills/`, or
+  `.codex/skills/`), so `<repo-root>` is the project that owns that directory (workspace at
+  `<repo>/tla/`), never the working directory or a parent that just holds sibling repos. The
+  workspace lives inside the repo you already have.
 - **Standalone** — the skill lives in a user-global / agent skill library with no owning
   project. `init` asks for a repo **URL** (or local path) and `scripts/get_repo.sh` clones
   it into `${VIBE_TLA_HOME:-$HOME/.vibe-tla}/repos/<name>` (`REPO_MODE=remote`); that clone

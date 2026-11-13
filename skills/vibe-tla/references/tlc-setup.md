@@ -18,10 +18,11 @@ something, or you need to invoke TLC by hand.
 2. A jar already recorded in `$WORKSPACE/config.env`.
 3. A VSCode TLA+ extension install: `~/.vscode*/extensions/tlaplus.vscode-ide-*/tools/tla2tools.jar`.
 4. Common system locations (`/usr/local/lib`, `/opt/tlaplus`, `$HOME/.tlaplus`).
-5. **Download** a pinned release into `$WORKSPACE/tools/tla2tools.jar` from the TLA+
-   GitHub releases (`https://github.com/tlaplus/tlaplus/releases`), using `curl` or
-   `wget`. If the machine is offline, the script prints the URL and the target path so
-   the user can drop the jar in manually.
+5. **Download** a pinned release (`v1.8.0` by default; override with `TLA_TOOLS_VERSION`
+   or `TLA_TOOLS_URL`) into `$WORKSPACE/tools/tla2tools.jar` from the TLA+ GitHub
+   releases (`https://github.com/tlaplus/tlaplus/releases`), using `curl` or `wget`. If
+   the machine is offline, the script prints the URL and the target path so the user can
+   drop the jar in manually.
 
 It then runs a smoke spec (`scripts/smoke/Smoke.tla`) to confirm TLC actually executes,
 and writes `TLA_TOOLS_JAR=<path>` into `$WORKSPACE/config.env`.

@@ -4,14 +4,14 @@ from __future__ import annotations
 from collections import defaultdict
 import math
 
-import matplotlib.pyplot as plt
-import numpy as np
 from plot_common import (COLORS, STYLES, MARKERS, DataError, apply_style, cli, decorate,
-                         export_bundle, finite_number, integer, load_config, nonempty, read_csv)
+                         export_bundle, finite_number, integer, load_config, load_plotting_deps,
+                         nonempty, read_csv)
 
 
 def run(args):
     """Render benchmark CSV to editable figures and an auditable replay bundle."""
+    np, _, plt, _ = load_plotting_deps()
     config = load_config(args.config, {'metric', 'unit', 'x_label', 'statistic', 'interval', 'independent_runs', 'seed', 'bootstrap_samples', 'y_scale'})
     for key in ('metric', 'unit', 'x_label'):
         config[key] = nonempty(config.get(key), key)

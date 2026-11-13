@@ -6,15 +6,14 @@ from datetime import date
 import math
 import re
 
-import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
-import numpy as np
 from plot_common import (COLORS, STYLES, DataError, apply_style, cli, decorate, export_bundle,
-                         finite_number, integer, load_config, nonempty, read_csv)
+                         finite_number, integer, load_config, load_plotting_deps, nonempty, read_csv)
 
 
 def run(args):
     """Render return CSV to NAV/drawdown and optional descriptive rolling Sharpe."""
+    np, _, plt, _ = load_plotting_deps()
+    from matplotlib.ticker import PercentFormatter
     config = load_config(args.config, {'return_basis', 'frequency', 'cost_note', 'rolling_window', 'periods_per_year', 'risk_free_per_period'})
     for key in ('return_basis', 'frequency', 'cost_note'):
         config[key] = nonempty(config.get(key), key)

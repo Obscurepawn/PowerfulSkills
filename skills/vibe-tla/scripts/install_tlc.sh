@@ -57,9 +57,10 @@ JAR="$(find_jar || true)"
 if [[ -n "$JAR" ]]; then
   echo "Found tla2tools.jar: $JAR"
 else
-  URL="${TLA_TOOLS_URL:-https://github.com/tlaplus/tlaplus/releases/latest/download/tla2tools.jar}"
+  PINNED_VER="${TLA_TOOLS_VERSION:-v1.8.0}"
+  URL="${TLA_TOOLS_URL:-https://github.com/tlaplus/tlaplus/releases/download/${PINNED_VER}/tla2tools.jar}"
   DEST="$WS_ABS/tools/tla2tools.jar"
-  echo "No tla2tools.jar found — downloading from $URL"
+  echo "No tla2tools.jar found — downloading pinned release (${PINNED_VER}) from $URL"
   if command -v curl >/dev/null 2>&1; then
     curl -fL --retry 3 -o "$DEST" "$URL" || true
   elif command -v wget >/dev/null 2>&1; then
@@ -71,6 +72,7 @@ else
     JAR="$DEST"
     echo "Downloaded: $JAR"
   else
+    rm -f "$DEST" 2>/dev/null || true
     echo "ERROR: could not obtain tla2tools.jar automatically." >&2
     echo "  Download it from $URL and place it at $DEST, then re-run /vibe-tla init." >&2
     exit 1
@@ -89,8 +91,9 @@ if printf '%s\n' "$SMOKE_OUT" | grep -qE "No error has been found|Model checking
     | grep -E "Model checking completed|No error has been found|states generated|distinct states" \
     | sed 's/^/  /'
 else
-  echo "WARNING: TLC smoke check did not report success. Tail of output:" >&2
-  printf '%s\n' "$SMOKE_OUT" | tail -6 >&2
+  echo "ERROR: TLC smoke check failed (corrupt jar or unsupported Java version). Tail of output:" >&2
+  printf '%s\n' "$SMOKE_OUT" | tail -8 >&2
+  exit 1
 fi
 
 # 3. Record the toolchain.  Precedence per key: caller override > recorded value > default.

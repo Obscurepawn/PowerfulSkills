@@ -8,13 +8,19 @@ import shutil
 import sys
 import tempfile
 
-IGNORE = shutil.ignore_patterns('__pycache__', '*.pyc', '.DS_Store')
+IGNORE = shutil.ignore_patterns('__pycache__', '*.pyc', '.DS_Store', 'tests', 'install_skill.py')
 
 
 def inventory(root):
     result = {}
     for path in sorted(root.rglob('*')):
-        if '__pycache__' in path.parts or path.suffix == '.pyc' or path.name == '.DS_Store':
+        rel_parts = path.relative_to(root).parts
+        if (
+            '__pycache__' in rel_parts
+            or 'tests' in rel_parts
+            or path.suffix == '.pyc'
+            or path.name in {'.DS_Store', 'install_skill.py'}
+        ):
             continue
         if path.is_symlink():
             raise ValueError(f'Symlinked package content is unsupported: {path}')
@@ -54,8 +60,11 @@ def install(source, destination, check=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    codex_dir = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
-    parser.add_argument('--dest', type=Path, default=codex_dir / 'skills' / 'technical-visualization',
+    if 'CODEX_HOME' in os.environ:
+        default_root = Path(os.environ['CODEX_HOME']) / 'skills'
+    else:
+        default_root = Path.home() / '.agents' / 'skills'
+    parser.add_argument('--dest', type=Path, default=default_root / 'technical-visualization',
                         help='Full destination skill directory, not its parent.')
     parser.add_argument('--check', action='store_true', help='Compare installed bytes without writing.')
     args = parser.parse_args()

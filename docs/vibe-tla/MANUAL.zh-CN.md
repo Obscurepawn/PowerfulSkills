@@ -32,15 +32,14 @@ check ...           → 下一轮  （或用 `advance` 爬阶梯的下一级）
 
 ## 0. 命令在哪里输入
 
-vibe-tla 是一个 **Claude Code 技能**：在 Claude Code 会话（CLI 或桌面应用）的输入框里
-键入 `/vibe-tla <command>`。安装时，把技能文件夹放到 Claude Code 能发现技能的位置——
-二选一：
+vibe-tla 是一个遵循通用规范的 **Agent Skill**（适用于 Claude Code、Codex、Antigravity 等支持技能的客户端）：在会话输入框中键入 `/vibe-tla <command>`（或 `$vibe-tla <command>`）。安装时，把技能文件夹放到客户端发现技能的位置——二选一：
 
 ```bash
-# 内嵌（embedded）：随单个仓库走
-cp -r vibe-tla  <your-repo>/.claude/skills/vibe-tla
+# 内嵌（embedded）：随单个仓库走（支持 .agents/skills 或 .claude/skills）
+cp -r skills/vibe-tla  <your-repo>/.agents/skills/vibe-tla
 # 或独立（standalone）：所有会话都可用
-cp -r vibe-tla  ~/.claude/skills/vibe-tla
+cp -r skills/vibe-tla  ~/.agents/skills/vibe-tla
+# （Claude Code 同样支持 <your-repo>/.claude/skills/vibe-tla 与 ~/.claude/skills/vibe-tla）
 ```
 
 然后打开会话（内嵌形态下 `cd <your-repo> && claude`），在对话中输入下文的命令即可。

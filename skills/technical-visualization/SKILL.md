@@ -1,6 +1,6 @@
 ---
 name: technical-visualization
-description: Create, revise, or audit editable engineering architecture diagrams, benchmark/performance plots, and quantitative research charts from code, specifications, or data. Use for reproducible SVG/PDF figures, CSV-driven plotting, evidence-aware captions, and visual QA. Not for decorative image generation, general prose editing, or inventing measurements.
+description: Create, revise, or audit editable engineering architecture diagrams, benchmark/performance plots, and quantitative research charts from code, specifications, or data (工程架构图、性能基准图与量化研究可视化). Use for reproducible SVG/PDF figures, CSV-driven plotting, evidence-aware captions, and visual QA. Not for decorative image generation, general prose editing, or inventing measurements.
 ---
 
 # Technical Visualization
@@ -16,7 +16,7 @@ Turn a question and traceable inputs into an editable figure, reproducible sourc
 | Wealth, drawdown, rolling metrics, factors, IC, turnover | [Quantitative research](references/quantitative.md) | `scripts/plot_quant.py`; periodic-return CSV → wealth/drawdown |
 | Existing figure review or final delivery | [QA and visual design](references/qa.md) | `scripts/audit_bundle.py`; exported artifacts + manifest |
 
-Read [data and bundle contracts](references/data-contracts.md) when preparing inputs or adapting a helper. [Installation and commands](INSTALL.md) covers dependencies, examples, and installation. [Source adaptation](references/source-adaptation.md) records the inspected nature-skills revision and deliberate changes; it is background, not a runtime dependency.
+Read [data and bundle contracts](references/data-contracts.md) when preparing inputs or adapting a helper. [Source adaptation](references/source-adaptation.md) records the inspected nature-skills revision and deliberate changes; it is background, not a runtime dependency.
 
 ## Working sequence
 

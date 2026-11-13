@@ -1,6 +1,6 @@
 ---
 name: personal-project-engineering
-description: 为个人项目建立或修订 README、功能规格（SPECS）和 AGENTS.md，审查文档与实现的一致性，或按规格推进一项变更的实现、测试与验收。适用于项目起步、已有仓库的文档整理，以及需要明确行为契约的开发任务。
+description: 为个人项目建立或修订 README、功能规格（SPECS / RFC）和 AGENTS.md（或 CLAUDE.md / GEMINI.md），审查文档与实现的一致性（doc-code drift），或按规格推进一项变更的开发、测试与验收。适用于项目起步、已有仓库的文档治理，以及需要明确行为契约的开发任务。
 ---
 
 # 个人项目工程实践
@@ -19,5 +19,13 @@ description: 为个人项目建立或修订 README、功能规格（SPECS）和 
 | 怎样把需求落实为可验证的变更，或找出实现与文档的偏差？ | [工程工作流](references/ENGINEERING-WORKFLOW.md) |
 
 模板供新写段落时取用。已有文件保留有效内容，替换占位符，删除不适用的段落。一个事实指定一个维护位置，其他文档按需链接。例如，README 演示一次成功调用，规格定义该接口对边界输入的承诺，AGENTS.md 说明改动它时运行哪项检查。
+
+## 机械化核对与实测验收
+
+编写或修订文档后，运行随附检查脚本（相对于本技能目录解析路径），排查失效相对链接、标题锚点、残留模板占位符以及不存在的脚本或 `npm run` 命令：
+
+```bash
+python3 <skill-dir>/scripts/audit_project_docs.py <repo-root>
+```
 
 运行 README 的最短示例，对照规格检查可观察结果，从 AGENTS.md 指定的目录核对项目命令。交付时说明实际运行了什么、观察到什么。若已有实现与约定冲突，分别注明当前行为、预期行为和证据，在用户授权的范围内解决。

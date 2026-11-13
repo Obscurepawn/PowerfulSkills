@@ -1,27 +1,27 @@
 # 安装与使用
 
-`technical-visualization` 支持工程架构图、性能基准图和量化研究图。入口是 `SKILL.md`；参考文档、脚本、模板、示例和测试随目录一起安装。绘图不依赖 API 密钥，也不要求安装 nature-skills。
+`technical-visualization` 支持工程架构图、性能基准图和量化研究图。入口是 `SKILL.md`；参考文档、脚本、模板和示例随目录一起安装（开发测试套件留在源码仓库，不拷入运行目录）。绘图不依赖 API 密钥，也不要求安装 nature-skills。
 
 ## 安装技能
 
-解压下载包，进入其中的 `technical-visualization` 目录，执行：
+进入仓库中的 `skills/technical-visualization` 目录，执行：
 
 ```bash
-python scripts/install_skill.py
-python scripts/install_skill.py --check
+python3 scripts/install_skill.py
+python3 scripts/install_skill.py --check
 ```
 
-默认目标是 `$CODEX_HOME/skills/technical-visualization`；没有设置 `CODEX_HOME` 时使用 `~/.codex/skills/technical-visualization`。安装器逐文件校验复制结果；已有同名目录内容不一致时会停止，保留原目录。更新时先把旧目录移到备份位置，再重新安装。
+默认目标是 `~/.agents/skills/technical-visualization`（若显式设置了环境变量 `CODEX_HOME`，则使用 `$CODEX_HOME/skills/technical-visualization`）。安装器逐文件校验复制结果；已有同名目录内容不一致时会停止，保留原目录。更新时先把旧目录移到备份位置，再重新安装。
 
 安装器会显示实际目标路径；使用 `--check` 可核对安装副本与当前技能目录是否一致。
 
-其他 Codex 环境若采用当前官方文档中的 `.agents/skills` 目录，可以显式指定完整目标路径：
+也可以通过 `--dest` 显式指定其他客户端或项目级技能目录：
 
 ```bash
-# 用户级安装
-python scripts/install_skill.py --dest "$HOME/.agents/skills/technical-visualization"
-# 或在当前项目内安装
-python scripts/install_skill.py --dest .agents/skills/technical-visualization
+# 在当前项目内安装
+python3 scripts/install_skill.py --dest .agents/skills/technical-visualization
+# 或安装到传统 ~/.codex/skills 目录
+python3 scripts/install_skill.py --dest "$HOME/.codex/skills/technical-visualization"
 ```
 
 Windows PowerShell：

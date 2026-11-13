@@ -30,9 +30,10 @@ clobber, the memory files.
 
 1. **Determine the repo and create the workspace** (per the scope rule in SKILL.md /
    `workspace.md`).
-   - **Embedded install** ⇒ `<repo-root>` = the project owning this skill's `.claude/`
-     (installed in `<repo>/.claude/skills/` ⇒ workspace at `<repo>/tla/`, never the parent
-     that holds sibling repos). `REPO_MODE=embedded`.
+   - **Embedded install** ⇒ `<repo-root>` = the project owning this skill's `.agents/` or
+     `.claude/` directory (installed in `<repo>/.agents/skills/` or `<repo>/.claude/skills/`
+     ⇒ workspace at `<repo>/tla/`, never the parent that holds sibling repos).
+     `REPO_MODE=embedded`.
    - **Standalone install** ⇒ get the target repo from the `init` argument if given
      (`/vibe-tla init <repo-url-or-path> [--branch B]`), otherwise **ask the user for the
      code repo URL** (an HTTPS git URL such as `https://code.example.org/team/Repo`). Then
@@ -62,14 +63,15 @@ clobber, the memory files.
      design docs, `*.md` near the code) — grep for them;
    - ask the user for pointers: which subsystems matter, where the interesting
      concurrency / durability / quorum / recovery / ordering code lives, any design docs
-     or a doc URL (use `WebFetch` if a link is given);
+     or a doc URL (fetch the URL with your web/HTTP tool if a link is given);
    - infer the source layout: languages, build system, where modules live, the
      runtime/concurrency model (threads? async tasks? a run-to-completion reactor?
      sharded workers?). The **dispatch/ownership topology matters** — later bug triage
      depends on knowing the *runtime's* concurrency, not the source file's apparent one
      (see `lessons.md` R5).
 
-   Use `AskUserQuestion` for the few high-leverage unknowns; don't interrogate.
+   Ask the user directly (or via your interactive question tool) for the few high-leverage
+   unknowns; don't interrogate.
 
 4. **Write the long-term memory.** Synthesize the above into the workspace memory files
    (full spec in `workspace.md`):

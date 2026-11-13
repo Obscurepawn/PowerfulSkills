@@ -222,7 +222,7 @@ def render(input_path, output_path):
                    "Boundaries have the meaning written in their labels. Node size does not encode capacity. "
                    "Evidence references in the JSON are user-supplied and require review.\n")
         (stage / "caption.txt").write_text(caption, encoding="utf-8")
-        (stage / "reproduce.txt").write_text(
+        (stage / "REPRODUCE.txt").write_text(
             "From this bundle directory, with Python 3.10+ and Graphviz on PATH:\n"
             "python3 code/render_architecture.py --input inputs/architecture.json --output replay\n"
             "Use a fresh output directory for each render. Graphviz and font versions affect geometry.\n",
@@ -232,7 +232,7 @@ def render(input_path, output_path):
             "inputs": [_hash_entry(stage, "inputs/architecture.json", "specification"),
                        _hash_entry(stage, "code/render_architecture.py", "renderer")],
             "outputs": [_hash_entry(stage, name) for name in
-                        ("architecture.dot", "architecture.svg", "architecture.pdf", "architecture.png", "caption.txt", "reproduce.txt")],
+                        ("architecture.dot", "architecture.svg", "architecture.pdf", "architecture.png", "caption.txt", "REPRODUCE.txt")],
             "parameters": spec,
             "environment": {"python": platform.python_version(), "platform": platform.platform(),
                             "graphviz": dot_version, "font_requested": spec.get("font_family", "DejaVu Sans")},

@@ -1,6 +1,7 @@
 """Regression tests for public CSV/config behavior and reproducible bundles."""
 import csv
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -10,6 +11,7 @@ import tempfile
 import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
+HAS_PLOTTING_DEPS = bool(importlib.util.find_spec('matplotlib') and importlib.util.find_spec('numpy'))
 
 class PlotCommands(unittest.TestCase):
     def setUp(self):
@@ -18,14 +20,35 @@ class PlotCommands(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
     def run_plot(self, kind, data, config, success=True, name='result'):
+        if not HAS_PLOTTING_DEPS:
+            self.skipTest('matplotlib/numpy not installed in current interpreter')
         source = self.root / 'data.csv'
         config_file = self.root / 'config.json'
         source.write_text(data, encoding='utf-8')
         config_file.write_text(json.dumps(config), encoding='utf-8')
         out = self.root / name
         result = subprocess.run([sys.executable, str(SCRIPTS / f'plot_{kind}.py'), '--input', str(source), '--config', str(config_file), '--output', str(out)], capture_output=True, text=True)
-        self.assertEqual(result.returncode == 0, success, result.stdout + result.stderr)
+        if success:
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        else:
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertNotIn('Traceback', result.stderr)
         return out, result
+
+    def test_help_and_missing_dependencies_exit_cleanly_without_traceback(self):
+        for kind in ('benchmark', 'quant'):
+            help_res = subprocess.run([sys.executable, '-S', str(SCRIPTS / f'plot_{kind}.py'), '--help'], capture_output=True, text=True)
+            self.assertEqual(help_res.returncode, 0, help_res.stderr)
+            self.assertIn('--input', help_res.stdout)
+
+            source = self.root / f'{kind}.csv'
+            cfg = self.root / f'{kind}.json'
+            source.write_text('series,x,run,value\nA,1,1,10\n', encoding='utf-8')
+            cfg.write_text('{}', encoding='utf-8')
+            miss_res = subprocess.run([sys.executable, '-S', str(SCRIPTS / f'plot_{kind}.py'), '--input', str(source), '--config', str(cfg), '--output', str(self.root / f'out-{kind}')], capture_output=True, text=True)
+            self.assertEqual(miss_res.returncode, 2, miss_res.stderr)
+            self.assertIn('missing plotting dependency', miss_res.stderr)
+            self.assertNotIn('Traceback', miss_res.stderr)
     def benchmark_config(self, **changes):
         return dict(title='Test benchmark', source='Synthetic test fixture', data_kind='synthetic', metric='Latency', unit='ms', x_label='Workers', **changes)
     def quant_config(self, **changes):

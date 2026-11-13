@@ -14,6 +14,7 @@
 
 import argparse
 import json
+import math
 import re
 import statistics
 import sys
@@ -49,11 +50,31 @@ HEADING_CONCLUSION = re.compile(r"不等于|不必然|无法|并不|未必|决�
 HEADING_QUESTION = re.compile(r"为什么|如何|怎么|怎样|什么|哪|？|\?")
 
 
+HEADING_OPENER = re.compile(
+    r"^(如何|怎么|怎样|为什么|为何|什么是|什么|何时|哪里|哪些|要不要|能不能|是否|不要|避免|"
+    r"[A-Za-z0-9_+-]+|[先再从用在把让以按对将由当靠借随不别少多只每])"
+)
+FENCE_OPEN = re.compile(r"^(`{3,}|~{3,})")
+LIST_MARKER = re.compile(r"^(?:[-*+]|\d+[.)])\s+")
+
+
 def is_conclusion_heading(title):
-    """逗号断开的长标题算结论式；纯问句标题不算（问句标题是推荐写法）。"""
+    """纯问句标题不算结论式（问句标题是推荐写法）；其余逗号断开的长标题或含结论词的标题算结论式。"""
+    if title.rstrip().endswith(("？", "?")):
+        return False
     if "，" in title:
         return True
     return not HEADING_QUESTION.search(title) and bool(HEADING_CONCLUSION.search(title))
+
+
+def heading_prefix_key(title):
+    m = HEADING_OPENER.match(title)
+    if m:
+        tok = m.group(1)
+        return tok.lower() if tok.isascii() else tok
+    return title[:2]
+
+
 HEADING_NUM_PREFIX = re.compile(r"^[\d.]+\s*")
 
 SENT_SPLIT = re.compile(r"(?<=[。！？；])")
@@ -67,23 +88,36 @@ THRESHOLDS = {
     "directive_per_k": 3.5,
     "caveat_tail_ratio": 0.20,     # 以否定/限定句收尾的段落占比
     "disclaimer_count": 1,         # “这是示例不是实测”类声明，全文最多 1 次
-    "distinguish_count": 4,
+    "distinguish_count": 4,        # 短中篇保底上限；长文按千字密度线性放宽
     "meta_count": 3,
     "not_a_but_b_count": 3,
     "chars_per_heading_min": 600,  # 平均每个标题覆盖的字数下限
     "heading_conclusion_ratio": 0.35,
-    "heading_same_prefix": 3,      # 同一起首字的标题数上限
+    "heading_same_prefix": 3,      # 同一起首词/句式的标题数上限
     "section_summary_ratio": 0.30, # 以总结句收尾的小节占比
 }
 
+COUNT_PER_K_RATES = {
+    "distinguish_count": 1.0,
+    "meta_count": 0.8,
+    "not_a_but_b_count": 0.8,
+}
 
 MIN_CHARS_FOR_DENSITY = 1500
 
 
+def effective_thresholds(chars):
+    limits = dict(THRESHOLDS)
+    for key, rate in COUNT_PER_K_RATES.items():
+        limits[key] = max(THRESHOLDS[key], math.ceil(chars / 1000 * rate))
+    return limits
+
+
 def strip_non_prose(lines):
-    """返回 [(行号, 文本, 类型)]，类型为 prose / heading；其余行丢弃。"""
+    """返回 [(行号, 文本, 类型)]，类型为 prose / heading / blank；跳过代码块、公式、引用块与表格。"""
     out = []
     in_code = in_math = False
+    fence_char, fence_len = "", 0
     start = 0
     if lines and lines[0].strip() == "---":
         for i in range(1, len(lines)):
@@ -93,18 +127,25 @@ def strip_non_prose(lines):
     for idx in range(start, len(lines)):
         raw = lines[idx]
         s = raw.strip()
-        if s.startswith("```"):
-            in_code = not in_code
+        if in_code:
+            if re.match(rf"^{re.escape(fence_char)}{{{fence_len},}}\s*$", s):
+                in_code = False
+            continue
+        fence_match = FENCE_OPEN.match(s)
+        if fence_match:
+            in_code = True
+            fence_char = fence_match.group(1)[0]
+            fence_len = len(fence_match.group(1))
             continue
         if s == "$$":
             in_math = not in_math
             continue
-        if in_code or in_math:
+        if in_math:
             continue
         if s.startswith("$$") and s.endswith("$$") and len(s) > 4:
             continue
-        if not s or s.startswith("|") or s.startswith("![") or s.startswith("<a ") \
-                or re.match(r"^\[[^\]]+\]:\s*\S+", s) or s in ("---", "***"):
+        if (not s or s.startswith(">") or s.startswith("|") or s.startswith("![")
+                or s.startswith("<a ") or re.match(r"^\[[^\]]+\]:\s*\S+", s) or s in ("---", "***")):
             out.append((idx + 1, "", "blank"))
             continue
         m = HEADING.match(s)
@@ -113,6 +154,11 @@ def strip_non_prose(lines):
             continue
         if s.startswith("# "):
             continue  # 文章大标题
+        if LIST_MARKER.match(s):
+            out.append((idx + 1, "", "blank"))
+            s = LIST_MARKER.sub("", s, count=1).strip()
+            if not s:
+                continue
         text = re.sub(r"`[^`]*`", "X", s)            # 行内代码
         text = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", text)  # 引用式链接
         text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
@@ -203,7 +249,7 @@ def analyze(path):
     prefix_count = {}
     for (ln, t), tt in zip(headings, titles):
         if tt:
-            prefix_count.setdefault(tt[0], []).append((ln, t))
+            prefix_count.setdefault(heading_prefix_key(tt), []).append((ln, t))
     worst_prefix = max(prefix_count.items(), key=lambda kv: len(kv[1]), default=("", []))
 
     para_lens = [len(p) for _, p in long_paras]
@@ -241,7 +287,7 @@ def analyze(path):
             return  # 短文本一两处命中就会让密度失真，只看计数类指标
         flags.append({"metric": key, "value": value, "limit": limit, "advice": msg, "evidence": evidence})
 
-    T = THRESHOLDS
+    T = effective_thresholds(chars)
     if m["negation_per_k"] > T["negation_per_k"]:
         over("negation_per_k", m["negation_per_k"], T["negation_per_k"],
              "否定式限定过密：只留读者真会踩的坑，其余删除或并入一处“常见误区”。",
@@ -307,8 +353,9 @@ def main():
         print(f"找不到文件：{a.file}", file=sys.stderr)
         return 2
     m, flags, notes = analyze(a.file)
+    effective = effective_thresholds(m["chars"])
     if a.json:
-        print(json.dumps({"metrics": m, "thresholds": THRESHOLDS, "flags": flags, "notes": notes},
+        print(json.dumps({"metrics": m, "thresholds": effective, "flags": flags, "notes": notes},
                          ensure_ascii=False, indent=2))
         return 1 if flags else 0
     print(f"# AI 写作痕迹检查：{a.file}")
@@ -319,9 +366,9 @@ def main():
         "caveat_tail_ratio": "以限定句收尾的段落占比", "disclaimer_count": "示例/未实测声明次数",
         "distinguish_count": "“要分清”类表述", "meta_count": "元叙述", "not_a_but_b_count": "不是A而是B",
         "chars_per_heading": "平均每标题字数(下限)", "heading_conclusion_ratio": "结论式标题占比",
-        "heading_same_prefix": "同起首字标题数", "section_summary_ratio": "小节总结句收尾占比",
+        "heading_same_prefix": "同起首词/句式标题数", "section_summary_ratio": "小节总结句收尾占比",
     }
-    lim = dict(THRESHOLDS, chars_per_heading=THRESHOLDS["chars_per_heading_min"])
+    lim = dict(effective, chars_per_heading=effective["chars_per_heading_min"])
     flagged = {f["metric"] for f in flags}
     for key, label in labels.items():
         mark = " ⚠" if key in flagged else ""

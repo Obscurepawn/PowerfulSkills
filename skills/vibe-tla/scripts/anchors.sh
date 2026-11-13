@@ -142,11 +142,47 @@ fi
 # unresolved / out-of-range anchors go to stderr; the caller tallies from the rows.
 compute_level_rows(){
   local level="$1"
-  local sources=()
-  # the spec(s) and the input doc carry the anchors
-  local t
-  for t in "$level"/02_models/*.tla; do [[ -e "$t" ]] && sources+=("$t"); done
-  [[ -e "$level/00_input.md" ]] && sources+=("$level/00_input.md")
+  local sources=() has_revision=0 line tag t
+  # Pick the latest revision per module stem (e.g. L1_Foo_v2.tla supersedes frozen
+  # pre-fix L1_Foo.tla); skip *_Unsafe.tla demonstration specs. Include frozen
+  # 00_input.md only when no *_vN revision has superseded the initial baseline.
+  local live_tlas
+  live_tlas="$(
+    for t in "$level"/02_models/*.tla; do
+      [[ -e "$t" ]] && printf '%s\n' "$t"
+    done | awk '
+      {
+        path = $0
+        base = path; sub(/^.*\//, "", base); sub(/\.tla$/, "", base)
+        if (base ~ /_Unsafe$/) next
+        ver = 1; stem = base
+        if (match(base, /_v[0-9]+$/)) {
+          ver = substr(base, RSTART + 2) + 0
+          stem = substr(base, 1, RSTART - 1)
+          rev = 1
+        }
+        if (!(stem in best_ver) || ver > best_ver[stem]) {
+          best_ver[stem] = ver
+          best_path[stem] = path
+        }
+      }
+      END {
+        for (s in best_path) print (rev ? "R\t" : "B\t") best_path[s]
+      }
+    ' | sort
+  )"
+  if [[ -n "$live_tlas" ]]; then
+    while IFS=$'\t' read -r tag t; do
+      [[ -n "$t" ]] || continue
+      [[ "$tag" == "R" ]] && has_revision=1
+      sources+=("$t")
+    done <<EOF
+$live_tlas
+EOF
+  fi
+  if [[ "$has_revision" -eq 0 && -e "$level/00_input.md" ]]; then
+    sources+=("$level/00_input.md")
+  fi
   [[ ${#sources[@]} -gt 0 ]] || return 0
 
   # collect, dedup anchors across this level's docs
@@ -249,7 +285,8 @@ while IFS= read -r level; do
     absf="$REPO_ROOT/$path"
     CHECKED=$((CHECKED+1))
     if [[ ! -f "$absf" ]]; then
-      warn "unresolved anchor: $path (no longer under REPO_ROOT) [$rel]"
+      echo "DRIFT  $path:$line   [$rel]  (file no longer exists)"
+      CHANGED=$((CHANGED+1))
       continue
     fi
     if newtext="$(slice "$absf" "$line" "$line")"; then

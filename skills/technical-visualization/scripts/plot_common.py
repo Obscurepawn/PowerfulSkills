@@ -15,12 +15,6 @@ import sys
 import tempfile
 import warnings
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib import font_manager
-import numpy as np
-
 COLORS = ['#0072B2', '#D55E00', '#009E73', '#CC79A7', '#E69F00', '#56B4E9', '#000000']
 STYLES = ['-', '--', '-.', ':']
 MARKERS = ['o', 's', '^', 'D', 'v', 'P', 'X']
@@ -28,6 +22,23 @@ SHARED_KEYS = {'title', 'source', 'data_kind', 'width', 'height', 'font_size', '
 
 class DataError(ValueError):
     """Invalid data/configuration with a user-readable message."""
+
+
+def load_plotting_deps():
+    """Import numpy and matplotlib on demand; fail cleanly with install instructions if absent."""
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        from matplotlib import font_manager
+        import numpy as np
+    except ModuleNotFoundError as exc:
+        root = Path(__file__).resolve().parents[1]
+        req = root / 'requirements.txt' if (root / 'requirements.txt').is_file() else root / 'requirements-lock.txt'
+        raise DataError(
+            f'missing plotting dependency {exc.name!r}; install with: python3 -m pip install -r {req}'
+        ) from None
+    return np, matplotlib, plt, font_manager
 
 
 def finite_number(value, label):
@@ -82,6 +93,7 @@ def load_config(path, extra_keys):
         if not low <= config[key] <= high:
             raise DataError(f'{key} must be between {low} and {high}')
     config['font_family'] = nonempty(config.get('font_family', 'DejaVu Sans'), 'font_family')
+    _, _, _, font_manager = load_plotting_deps()
     try:
         font_manager.findfont(font_manager.FontProperties(family=config['font_family']), fallback_to_default=False)
     except ValueError as exc:
@@ -105,6 +117,7 @@ def read_csv(path, fields):
 
 
 def apply_style(config):
+    _, _, plt, _ = load_plotting_deps()
     plt.rcParams.update({
         'font.family': config['font_family'], 'font.size': config['font_size'],
         'axes.titlesize': config['font_size'] + 1, 'axes.labelsize': config['font_size'],
@@ -139,6 +152,7 @@ def write_csv(path, fields, rows):
 
 def export_bundle(args, config, kind, fig, rows, fields, caption, notes, groups):
     """Validate output, write to a staging directory, then commit the bundle."""
+    np, matplotlib, plt, font_manager = load_plotting_deps()
     destination = Path(args.output).resolve()
     if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
         raise DataError(f'output exists and is not empty: {destination}; choose a new directory')
@@ -179,8 +193,8 @@ def export_bundle(args, config, kind, fig, rows, fields, caption, notes, groups)
         (bundle / 'layout.json').write_text(json.dumps(layout, indent=2) + '\n', encoding='utf-8')
         write_csv(bundle / 'derived.csv', fields, rows)
         (bundle / 'caption.txt').write_text(caption + '\n', encoding='utf-8')
-        command = ['python', f'code/{script.name}', '--input', 'inputs/data.csv', '--config', 'inputs/config.json', '--output', '../replayed-' + destination.name]
-        readme = 'Run from this directory with the recorded Python/package versions.\nInstall dependencies: python -m pip install -r requirements-lock.txt\nReplay: ' + shlex.join(command) + '\n\nUse a different --output path if it already exists. Input files are never modified.\nFont: ' + config['font_family'] + '\nRender equality is expected only with the same OS, fonts and dependency stack.\nThe lock file records the installed plotting dependency stack; the manifest records Python and platform.\nInspect SVG/PDF at final size and resolve QA findings before presenting conclusions.\n'
+        command = ['python3', f'code/{script.name}', '--input', 'inputs/data.csv', '--config', 'inputs/config.json', '--output', '../replayed-' + destination.name]
+        readme = 'Run from this directory with the recorded Python/package versions.\nInstall dependencies: python3 -m pip install -r requirements-lock.txt\nReplay: ' + shlex.join(command) + '\n\nUse a different --output path if it already exists. Input files are never modified.\nFont: ' + config['font_family'] + '\nRender equality is expected only with the same OS, fonts and dependency stack.\nThe lock file records the installed plotting dependency stack; the manifest records Python and platform.\nInspect SVG/PDF at final size and resolve QA findings before presenting conclusions.\n'
         (bundle / 'REPRODUCE.txt').write_text(readme, encoding='utf-8')
         input_paths = [('inputs/data.csv', 'data'), ('inputs/config.json', 'configuration'), (f'code/{script.name}', 'code'), ('code/plot_common.py', 'code'), ('requirements-lock.txt', 'dependencies')]
         manifest = {

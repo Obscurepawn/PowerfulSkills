@@ -58,7 +58,7 @@ result/
   derived.csv             numeric plots
   layout.json             measured plot rectangles in points
   requirements-lock.txt   installed plotting dependency versions
-  REPRODUCE.txt            architecture uses reproduce.txt
+  REPRODUCE.txt           exact replay instructions
   architecture.dot        architecture only
 ```
 

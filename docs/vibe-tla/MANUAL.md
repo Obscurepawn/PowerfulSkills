@@ -35,15 +35,16 @@ Two honesty rules drive everything, and they are why the output is trustworthy:
 
 ## 0. Where commands are typed
 
-vibe-tla is a **Claude Code skill**: you type `/vibe-tla <command>` at the prompt of a
-Claude Code session (CLI or desktop app). To install it, put the skill folder where Claude
-Code finds skills — either
+vibe-tla is an **Agent Skill** (works in Claude Code, Codex, Antigravity, and compatible
+coding agents): you invoke `/vibe-tla <command>` (or `$vibe-tla <command>`) at the session
+prompt. To install it, copy the skill folder into your agent's skill directory — either
 
 ```bash
-# embedded: travels with one repo
-cp -r vibe-tla  <your-repo>/.claude/skills/vibe-tla
+# embedded: travels with one repo (.agents/skills or .claude/skills)
+cp -r skills/vibe-tla  <your-repo>/.agents/skills/vibe-tla
 # or standalone: available in every session
-cp -r vibe-tla  ~/.claude/skills/vibe-tla
+cp -r skills/vibe-tla  ~/.agents/skills/vibe-tla
+# (Claude Code also discovers <your-repo>/.claude/skills/vibe-tla and ~/.claude/skills/vibe-tla)
 ```
 
 then open a session (`cd <your-repo> && claude` for the embedded shape) and type the
