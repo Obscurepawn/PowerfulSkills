@@ -97,7 +97,7 @@ records enough for `sync` to re-anchor and for the next `check` to resume:
 - Code anchors the model depends on:
     - <file:line> — <what it is> — <denotation>
     - <file:line> — ...
-- TLC: <distinct states> / <depth> / <result> (cfg: <name>)
+- TLC: <distinct states> / <depth> / <result> (cfg: <name>)   [or Apalache: bmc(length=K) / inductive(IndInv) -> NoError|Error]
 - Finding: <none | candidate(<open precondition>) | confirmed | refuted(<why>) | safe-by-design | retired(<reason>)>
 - Reviewed: <date → verdict, when /vibe-tla review vetted the candidate> (optional)
 - Fix: <none | applied at <file:line> via /vibe-tla fix, validated by L{n}_{Module}_v2> (optional)

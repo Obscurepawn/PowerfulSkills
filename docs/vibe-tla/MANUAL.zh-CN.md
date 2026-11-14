@@ -128,8 +128,11 @@ tla/<component>_models/<ladder>/L{n}_{slug}/
 ```
 
 大组件按**阶梯（ladder）**逐层验证（L0 → Ln），每层只加一个关注点——这样每层都留在
-TLC 的预算之内，每个结论都可独立审计。`/vibe-tla advance` 跑下一个计划中的层级；
-`/vibe-tla status` 展示台账。
+TLC 的预算之内，每个结论都可独立审计。遇到由宽整数域、64 位位域编码、字节级水位线预算
+或无界递增计数器导致的**笛卡尔积状态爆炸**时，vibe-tla 不会通过盲目缩减常数来“伪造
+PASS”，而是按 `references/symbolic.md` 进行 Skolem 见证投影，并切换至基于 Apalache/Z3
+的**符号有界模型检验（Symbolic BMC）或符号归纳不变量证明（Inductive Invariant）**。
+`/vibe-tla advance` 跑下一个计划中的层级；`/vibe-tla status` 展示台账。
 
 ## 3. 一次运行能得出什么结论
 
@@ -435,4 +438,5 @@ CI：PR 一旦触碰已建模的代码，自动标记模型漂移。
 
 *深入阅读：`references/commands.md`（每个命令的精确流程）、`methodology.md`（阶梯
 方法、转写与故障注入两种模式、完工定义）、`lessons.md`（完整的 R1–R5 判例）、
-`authoring.md`、`coverage.md`、`tlc-setup.md`、`ci-integration.md`。*
+`authoring.md`、`symbolic.md`（应对笛卡尔积状态爆炸的符号推理与归纳不变量指南）、
+`coverage.md`、`tlc-setup.md`、`ci-integration.md`。*

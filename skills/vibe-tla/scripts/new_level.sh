@@ -48,9 +48,12 @@ w "01_reasoning.md" <<EOF
 - Faults modeled (if any): <name> — tolerated because <design statement + file:line>
 
 ## Concrete vs abstracted
-| Modeled concretely | Abstracted (and why sound) |
+| Modeled concretely | Abstracted / factorized (and why sound — see symbolic.md §2) |
 |---|---|
 | <…> | <…> |
+
+## Solver choice
+<TLC explicit-state BFS | Apalache symbolic BMC / Inductive Invariant (when Cartesian product explodes — see references/symbolic.md)>
 
 ## Concurrency derived from the runtime (not the source file)
 <who runs these transitions, on what workers, dispatched by what key; is shared state

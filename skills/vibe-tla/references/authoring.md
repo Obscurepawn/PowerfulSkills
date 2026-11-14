@@ -90,7 +90,7 @@ variants `*_Crash`, `*_LossReorder`, `*_UnderQuorum`. Reserve `*_Unsafe` for
 guard-demonstration models that deliberately remove a guard to prove it is load-bearing —
 never a real finding (`methodology.md` §3.2).
 
-## 5. Sizing the config
+## 5. Sizing the config — and breaking Cartesian state explosion
 
 - Keep the **primary cfg small** — target a few minutes in TLC. Use the smallest sizes
   that still exercise the concern (often N=3, indices ≤ a handful, 1–2 in-flight ops).
@@ -98,8 +98,18 @@ never a real finding (`methodology.md` §3.2).
   index ranges) and run them when the primary passes; document them in `03_run_log.md`.
 - Use **symmetry sets** (`SYMMETRY` over a permutation set of interchangeable nodes/keys)
   to cut the state space — but only over genuinely interchangeable values.
-- If a level genuinely explodes, document the wall and either bound the concern more
-  tightly *without dropping it*, or note Apalache (symbolic) as an alternative.
+- **When Cartesian-product state explosion makes enumeration infeasible** (64-bit packed
+  keys, byte budgets, wide watermark/LSN/lease arithmetic, multi-key maps, or unbounded
+  counter horizons): **never** shrink constants below the threshold needed to trigger the
+  bug class and call that `PASS`. Follow **`references/symbolic.md`**:
+  1. Apply **Skolem witness projection** (1–2 symbolic tracked keys + a symbolic
+     environment summary) and **relational parameterization** (`ConstInit`) in `01_reasoning.md`.
+  2. Switch to **Symbolic BMC** (`scripts/run_apalache.sh bmc`) over `Int` inequalities
+     (never write wide `a..b` ranges in Apalache!) or **Symbolic Inductive Invariants**
+     (`scripts/run_apalache.sh inductive` + the Counterexample-to-Induction strengthening
+     loop) with Snowcat `\* @type: ...;` annotations.
+  3. Guard against vacuous symbolic passes by pairing with a small-domain TLC `--coverage`
+     run (`coverage.sh`) or symbolic action-witness checks (`symbolic.md` §5.1).
 
 ## 6. Iterate to "runs clean in TLC"
 

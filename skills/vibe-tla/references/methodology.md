@@ -22,13 +22,14 @@ spec. If a request conflicts with these rules, say so — do not silently lower 
 
 ## 1. The goal
 
-Produce **mechanically-verified evidence (TLA+ / TLC)** about a real subsystem: either a
+Produce **mechanically-verified evidence (TLA+ checked with TLC, or with Apalache/Z3 when
+Cartesian state spaces explode)** about a real subsystem: either a
 **finding** (a code path can violate a property a developer expects) or a **validated
 contract** (under the system's own fault model, the property holds). Both are valuable;
 a clean run under a faithful fault model is a genuine correctness result, not a
 disappointment. What is *not* acceptable is a model whose verdict is an artifact of an
-unfaithful abstraction, or a finding reported as a bug before its preconditions are
-discharged.
+unfaithful abstraction, a truncated domain that hides boundary bugs, or a finding reported
+as a bug before its preconditions are discharged.
 
 ---
 
@@ -190,15 +191,20 @@ from false positives / model artifacts / hallucinations.
 
 ## 7. Reproducibility & honesty
 
-- Every claimed result is reproducible from the committed `.tla` + `.cfg` by re-running
-  TLC. If you cite a number, you ran it.
-- For a violating run, re-run with `-workers 1` and record those deterministic counts.
-  The reproducible facts are the verdict and the violation depth.
-- Report TLC outcomes faithfully: real state counts, the real trace, and whether each cfg
-  was actually run vs only provided. If something failed or was skipped, say so.
-- Don't shrink a model just to finish faster if that drops the concern under test.
-  Document state-space walls explicitly; never let truncation read as "covered
-  everything".
+- Every claimed result is reproducible from the committed `.tla` + `.cfg` (or symbolic
+  invocation) by re-running TLC (`run_tlc.sh`) or Apalache (`run_apalache.sh`). If you cite
+  a number or SMT outcome, you ran it.
+- For a violating TLC run, re-run with `-workers 1` and record those deterministic counts.
+  The reproducible facts are the verdict and the violation depth (or concrete Z3 witness).
+- Report solver outcomes faithfully: real state counts / symbolic bounds, the real trace,
+  and whether each check was actually run vs only provided. If something failed or was
+  skipped, say so.
+- **Never shrink a domain just to finish faster if that drops the concern under test** (e.g.
+  truncating 64-bit bit-fields or byte-budget gaps into toy `0..2` ranges). When Cartesian
+  state-space explosion blocks explicit enumeration, escalate to **symbolic reasoning** per
+  `references/symbolic.md` (Skolem witness projection + Apalache Symbolic BMC or Inductive
+  Invariants), and document any remaining bounds explicitly — never let truncation read as
+  "covered everything".
 
 ---
 

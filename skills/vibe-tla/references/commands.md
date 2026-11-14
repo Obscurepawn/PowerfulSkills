@@ -154,12 +154,19 @@ cfgs you run, and how hard you push TLC.
      `workspace.md`), and a scoped note pinning the source root + exclusions you verified.
    State the chosen ladder + level and why before writing files.
 
-3. **Plan the level.** Pick the **mode** (`methodology.md` §modes): *faithful transcription*
-   (zero fault injection) for control-flow / state-machine logic, or *faithful fault
-   injection* for quorum / replication / durability / recovery / GC code — injecting **only**
-   the faults that code is designed to tolerate, each with the design statement that says so.
-   Pick the **property** that expresses the goal as a developer expectation (read-your-write,
+3. **Plan the level (mode, property, and solver strategy).** Pick the **mode**
+   (`methodology.md` §modes): *faithful transcription* (zero fault injection) for
+   control-flow / state-machine logic, or *faithful fault injection* for quorum /
+   replication / durability / recovery / GC code — injecting **only** the faults that code
+   is designed to tolerate, each with the design statement that says so. Pick the
+   **property** that expresses the goal as a developer expectation (read-your-write,
    success-implies-durable, monotonicity, exactly-once, termination, no-lost-update…).
+   **Assess state-space geometry up front:** if the concern spans a wide Cartesian product
+   (64-bit key packing/masking, byte budgets/watermarks, parameterized thresholds, multi-key
+   maps, or unbounded counter horizons) where small finite constants would hide the bug or
+   blow up TLC, read **`references/symbolic.md`** now and plan pre-solver factorization
+   (Skolem witness projection + `ConstInit`) plus **Symbolic BMC (`bmc`)** or **Symbolic
+   Inductive Invariants (`inductive`)** via Apalache instead of naive enumeration.
 
 4. **Read the production source first.** Every transition you model must cite a verified
    `file:line` you actually read — nothing guessed. Enumerate the API caller's obligations
@@ -173,21 +180,35 @@ cfgs you run, and how hard you push TLC.
    basename must equal the module name; PlusCal-free action style; the `var ↔ code` map at
    the top; properties express the goal. Size the model by **effort**: at `low`, the primary
    `.cfg` only at the smallest sizes that still exercise the concern; at `high`, add scaling
-   cfgs (larger N / longer ranges) and extra scenario cfgs in `02_models/`, and consider more
-   fault variants. See `authoring.md`.
+   cfgs (larger N / longer ranges), extra scenario cfgs, or escalate to symbolic parameter
+   ranges / inductive proofs (`symbolic.md`). For symbolic specs, include Snowcat
+   `\* @type: ...;` comments and bind wide numeric domains via `\in Int` + inequalities
+   (never wide `a..b` set ranges — see `symbolic.md` §3.2).
 
-6. **Run TLC until the spec is runnable.** Invoke via
-   `scripts/run_tlc.sh 02_models/L{n}_{Module}.tla [cfg]` (it runs the real module-named
-   `.tla`, never a symlink). Iterate on parse/semantic errors until it runs clean — a model
-   that doesn't run is not evidence. Run every cfg you commit; for a violating run, re-run
-   with `--det` (`-workers 1`) for deterministic counts; run once with `--coverage` — at
-   **every** effort level, the extra run is cheap — and confirm **every action fired** (a
-   zero-coverage action is dead spec — a guard that never holds, often a real modeling bug).
-   On a **violating** cfg, TLC halts at the violation, so coverage spans only the explored
-   prefix — a zero-coverage action there may be halt-truncation, not dead spec; confirm it
-   against a non-violating cfg before treating it as dead. Record the exact commands, per-cfg
-   state counts / depth / time / result, the coverage summary, and the wall-clock runtime in
-   `03_run_log.md`. Clean scratch after (`scripts/run_tlc.sh` does this).
+6. **Run the solver(s) until the spec executes cleanly.**
+   - **Explicit-state path (default when finite sizes are faithful & tractable):** invoke
+     `scripts/run_tlc.sh 02_models/L{n}_{Module}.tla [cfg]`. Iterate on parse/semantic
+     errors until it runs clean — a model that doesn't run is not evidence. Run every cfg
+     you commit; for a violating run, re-run with `--det` (`-workers 1`) for deterministic
+     counts; run once with `--coverage` — at **every** effort level, the extra run is
+     cheap — and confirm **every action fired** (a zero-coverage action is dead spec — a
+     guard that never holds, often a real modeling bug). On a **violating** cfg, TLC halts
+     at the violation, so coverage spans only the explored prefix — confirm any zero-coverage
+     action against a non-violating cfg before treating it as dead.
+   - **Symbolic path (when Cartesian explosion hits, or TLC times out at minimum faithful
+     bounds — `references/symbolic.md`):** run `scripts/install_apalache.sh "$WORKSPACE"`
+     once if `APALACHE_BIN` is not yet configured, check types via
+     `scripts/run_apalache.sh typecheck 02_models/L{n}_{Module}.tla`, then run either
+     **Symbolic BMC** (`scripts/run_apalache.sh bmc ... --inv=<Inv> --length=<K>`) for
+     bounded/combinatorial checks or **Symbolic Inductive Invariants**
+     (`scripts/run_apalache.sh inductive ... --indinv=<IndInv> --inv=<Safety>`) driving the
+     Counterexample-to-Induction (CTI) strengthening loop (`symbolic.md` §4) for unbounded
+     horizons. **Guard against vacuous symbolic PASS** (`symbolic.md` §5.1): pair symbolic
+     verification with a small-domain TLC `--coverage` run on the finite twin (or symbolic
+     action-witness checks) so no action is dead spec.
+   Record exact commands, state counts or symbolic bounds/outcomes, coverage summary, and
+   wall-clock runtime in `03_run_log.md`. Clean scratch after (`run_tlc.sh` and
+   `run_apalache.sh` do this automatically).
 
 7. **Triage any violation — `lessons.md` is binding.** Before classifying, run the checklist:
    establish what each value **denotes** per its producer (R1.1); a staleness claim needs a
@@ -377,10 +398,10 @@ finish faster, and never let truncation read as "covered everything":
 
 | | **low** — quick pass, simpler components | **medium** — the default | **high** — explore more, load-bearing ones |
 |---|---|---|---|
-| Model sizes | smallest that still exercises the concern | modest sizes | larger N / longer index & value ranges |
+| Model sizes | smallest that still exercises the concern | modest sizes (or Symbolic BMC if wide domains explode) | larger N / longer ranges + symbolic parameter bounds (`ConstInit`) |
 | Configs | primary cfg only | primary cfg | primary + scaling rounds + extra scenario cfgs in `02_models/` |
 | Faults (injection mode) | one or two core tolerated faults | the core tolerated faults | the full tolerated-fault set + combinations |
-| TLC | primary run + `--det` on any violation + `--coverage` once | the same | the same, plus a longer time budget and deeper/scaling runs |
+| Solver | primary TLC run + `--det` on any violation + `--coverage` once (or Apalache `bmc` on Cartesian blowup) | the same | the same, plus scaling runs, Symbolic Inductive Invariants (`inductive`) for unbounded horizons, or deep `-simulate` hunting |
 | Properties | the core developer expectation | the core expectation | core + secondary invariants and liveness |
 
 ---
@@ -396,8 +417,11 @@ agent that found the bug to also clear it.
 Target `[finding]` (id / ladder-level / keywords), or no arg = every open `candidate` in
 `MEMORY.md`. For each:
 
-1. **Reproduce, don't recall.** Re-run TLC on the *committed* spec and confirm the
-   counterexample and its state counts are real (a hallucinated trace fails here).
+1. **Reproduce, don't recall.** Re-run TLC (`run_tlc.sh`) or Apalache (`run_apalache.sh`) on
+   the *committed* spec and confirm the counterexample and its state counts / SMT witness are
+   real (a hallucinated trace fails here). For an inductive step failure, also confirm `State 0`
+   is genuinely reachable from `Init` rather than an under-strengthened CTI artifact
+   (`symbolic.md` §4).
 2. **Run the checklist adversarially** (`lessons.md` R1–R5): denotation, semantic witness,
    omitted guard / looser-than-code, caller obligations across the repo, concurrency topology,
    designed-regime / domain bound. When subagents are available, **spawn an independent
@@ -438,11 +462,12 @@ verified).
 3. **Validation re-check.** Model the *fixed* code: add a bumped spec
    `02_models/L{n}_{Module}_v2.tla` (or a new level) transcribing the guard/ordering the fix
    added, citing the new `file:line` — never edit the frozen original spec / `00` / `05`.
-   Re-run TLC (`scripts/run_tlc.sh`) and **append the v2 runs (commands + numbers) to the
-   level's `03_run_log.md`** — the run ledger is append-only, not frozen; every run the level
-   ever made belongs there. Property now **holds** (counterexample gone) → the finding is
-   **retired: fixed (validated)**. Still fails → the fix is incomplete; report the surviving
-   trace and loop back.
+   Re-run TLC (`scripts/run_tlc.sh`) or Apalache (`scripts/run_apalache.sh` when the finding
+   came from a symbolic BMC / inductive model) and **append the v2 runs (commands + numbers)
+   to the level's `03_run_log.md`** — the run ledger is append-only, not frozen; every run
+   the level ever made belongs there. Property now **holds** (counterexample gone) → the
+   finding is **retired: fixed (validated)**. Still fails → the fix is incomplete; report the
+   surviving trace and loop back.
 4. **Record.** Set `- Finding: retired(fixed, validated by L{n}_{Module}_v2)` and `- Fix:` in
    `MEMORY.md`, the ladder `ROADMAP.md`, the ladder **`TODO.md`** (move the finding from
    Open to Closed), **and `$WORKSPACE/ROADMAP.md`**; write a short retirement note (what

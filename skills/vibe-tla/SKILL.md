@@ -2,12 +2,13 @@
 name: vibe-tla
 description: >-
   Find real concurrency, durability, replication, recovery, and ordering bugs in any
-  codebase by writing code-faithful TLA+ specifications, model-checking them with TLC,
-  and triaging violations into honest candidate vs confirmed bug reports (形式化验证 /
-  模型检验). Self-contained with per-repo long-term memory and commands for init, check,
+  codebase by writing code-faithful TLA+ specifications, model-checking them with TLC
+  (or symbolic SMT / inductive invariants via Apalache when Cartesian state spaces
+  explode), and triaging violations into candidate vs confirmed bug reports (形式化验证 /
+  模型检验 / 符号推理). Self-contained with per-repo memory and commands for init, check,
   review, fix, sync, resume, advance, status, coverage, and effort. Use whenever the
-  user mentions TLA+, TLC, model checking, formal verification, or wants mechanical
-  interleaving checks for races, lost updates, stale reads, deadlocks, or quorum bugs.
+  user mentions TLA+, TLC, Apalache, model checking, formal verification, or interleaving
+  checks for races, lost updates, stale reads, deadlocks, or quorum bugs.
 ---
 
 # vibe-tla — code-faithful TLA+ bug-hunting for any repo
@@ -42,8 +43,13 @@ relative to this skill's directory — read the one you need, when you need it:
   model-the-designed-regime. **Read before classifying any violation.**
 - `references/authoring.md` — how to write a faithful spec: the `var ↔ code` map, action
   style, fault-injection patterns, TLA+ idioms, and how to iterate to "runs clean in TLC".
-- `references/tlc-setup.md` — the TLC toolchain, the canonical invocation, determinism,
-  config keys, and scratch cleanup.
+- `references/symbolic.md` — **breaking Cartesian-product state explosion**: Skolem witness
+  projection, relational `ConstInit`, Snowcat `@type:` rules, Symbolic BMC (`Apalache`/Z3),
+  and Symbolic Inductive Invariants (`IndInv` + Counterexample-to-Induction loop). Read
+  whenever wide numeric/bit-packed domains, multi-key maps, or unbounded counters make
+  explicit TLC enumeration infeasible.
+- `references/tlc-setup.md` — the TLC (and on-demand Apalache) toolchain, canonical
+  invocations, determinism, config keys, and scratch cleanup.
 - `references/workspace.md` — the per-repo workspace layout, the memory files, and the two
   install shapes / scope rule in full.
 - `references/coverage.md` — **fidelity & coverage**: how to measure how faithfully a spec
@@ -52,9 +58,10 @@ relative to this skill's directory — read the one you need, when you need it:
   modeled code flags model drift.
 
 Bundled scripts (in `scripts/`, self-locating) do the repetitive mechanical work so you
-don't reinvent it each run: `install_tlc.sh`, `run_tlc.sh`, `new_level.sh`, `status.sh`,
-`coverage.sh`, `anchors.sh`, and `get_repo.sh` (clone/track the target repo in a standalone
-install). Prefer them over hand-rolled equivalents.
+don't reinvent it each run: `install_tlc.sh`, `run_tlc.sh`, `install_apalache.sh`,
+`run_apalache.sh`, `new_level.sh`, `status.sh`, `coverage.sh`, `anchors.sh`, and
+`get_repo.sh` (clone/track the target repo in a standalone install). Prefer them over
+hand-rolled equivalents.
 
 ## Command dispatch
 

@@ -75,7 +75,25 @@ WORKSPACE_DIR=tla                          # workspace folder name (relative to 
 TLC_WORKERS=auto                           # default worker count for exploration
 TLC_TIMEOUT=1800                           # per-cfg wall-clock bound (seconds), 0 = none; run_tlc.sh enforces it when a timeout/gtimeout binary exists
 VIBE_TLA_EFFORT=medium                     # default effort: low | medium | high (set by /vibe-tla effort)
+APALACHE_BIN=/abs/path/to/apalache-mc      # optional: resolved on demand by scripts/install_apalache.sh
+APALACHE_TIMEOUT=1800                      # optional: per-step timeout for scripts/run_apalache.sh
 ```
+
+## On-demand symbolic solver (`Apalache` + bundled Z3)
+
+`init` keeps setup fast by installing only `tla2tools.jar`. When a level encounters
+Cartesian-product state explosion and switches to symbolic BMC or inductive invariants
+(`references/symbolic.md`), run:
+
+```sh
+scripts/install_apalache.sh "$WORKSPACE"
+```
+
+It resolves an existing `apalache-mc` (`$APALACHE_BIN`, `config.env`, `$WORKSPACE/tools/apalache/`,
+`PATH`) or downloads a pinned release (`v0.63.0` by default; override with `APALACHE_VERSION`
+or `APALACHE_URL`), smoke-tests Snowcat + Z3 on `scripts/smoke/SmokeSymbolic.tla`, and
+records `APALACHE_BIN` in `$WORKSPACE/config.env` without clobbering existing keys. Invoke
+symbolic checks through `scripts/run_apalache.sh` (`typecheck` / `bmc` / `inductive`).
 
 `REPO_MODE`/`REPO_URL` come from the **standalone** install flow: `scripts/get_repo.sh`
 (`use` / `refresh` / `active`) clones the target repo from a URL and records the active repo

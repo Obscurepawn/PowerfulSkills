@@ -139,8 +139,13 @@ tla/<component>_models/<ladder>/L{n}_{slug}/
 ```
 
 Big components are verified as a **ladder** of levels (L0 → Ln), each adding one concern —
-so every level stays within TLC's budget and every verdict is independently auditable.
-`/vibe-tla advance` runs the next planned rung; `/vibe-tla status` shows the ledger.
+so every level stays within TLC's budget and every verdict is independently auditable. When
+a level's state space is a wide Cartesian product that cannot be enumerated cleanly (64-bit
+packed keys, byte-budget watermarks, parameterized quorum thresholds, or unbounded counter
+horizons), vibe-tla switches from explicit enumeration to **symbolic SMT model checking and
+inductive invariants** via Apalache/Z3 (`references/symbolic.md`) rather than shrinking
+constants and masking real boundary bugs. `/vibe-tla advance` runs the next planned rung;
+`/vibe-tla status` shows the ledger.
 
 ## 3. What a run can conclude
 
@@ -462,5 +467,6 @@ per run: `check <keywords> --effort high`. Use `high` for load-bearing subsystem
 
 *Deep dives: `references/commands.md` (exact per-command procedure), `methodology.md` (the
 ladder method, transcription vs fault-injection modes, definition of done), `lessons.md`
-(the full R1–R5 case law), `authoring.md`, `coverage.md`, `tlc-setup.md`,
+(the full R1–R5 case law), `authoring.md`, `symbolic.md` (breaking Cartesian-product
+explosion with Apalache/Z3 & inductive invariants), `coverage.md`, `tlc-setup.md`,
 `ci-integration.md`.*

@@ -25,10 +25,14 @@ CLI_REPO_URL="${REPO_URL:-}"
 
 # Load any previously recorded values so a refresh re-uses them when no override is given.
 PRIOR_JAR=""
+PRIOR_APALACHE_BIN=""
+PRIOR_APALACHE_TIMEOUT=""
 if [[ -f "$CONFIG" ]]; then
   # shellcheck disable=SC1090
   source "$CONFIG" 2>/dev/null || true
   PRIOR_JAR="${TLA_TOOLS_JAR:-}"
+  PRIOR_APALACHE_BIN="${APALACHE_BIN:-}"
+  PRIOR_APALACHE_TIMEOUT="${APALACHE_TIMEOUT:-}"
 fi
 
 # 1. Java is mandatory and cannot be installed silently.
@@ -108,6 +112,12 @@ VIBE_TLA_EFFORT=${CLI_VIBE_TLA_EFFORT:-${VIBE_TLA_EFFORT:-medium}}
 REPO_MODE=${CLI_REPO_MODE:-${REPO_MODE:-embedded}}
 REPO_URL=${CLI_REPO_URL:-${REPO_URL:-}}
 EOF
+if [[ -n "$PRIOR_APALACHE_BIN" ]]; then
+  {
+    printf 'APALACHE_BIN=%s\n' "$PRIOR_APALACHE_BIN"
+    printf 'APALACHE_TIMEOUT=%s\n' "${PRIOR_APALACHE_TIMEOUT:-1800}"
+  } >> "$CONFIG"
+fi
 
 echo "Wrote $CONFIG"
 echo "  TLA_TOOLS_JAR=$JAR"
