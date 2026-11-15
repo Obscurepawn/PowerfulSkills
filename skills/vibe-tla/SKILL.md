@@ -48,6 +48,11 @@ relative to this skill's directory — read the one you need, when you need it:
   and Symbolic Inductive Invariants (`IndInv` + Counterexample-to-Induction loop). Read
   whenever wide numeric/bit-packed domains, multi-key maps, or unbounded counters make
   explicit TLC enumeration infeasible.
+- `references/performance.md` — **high-velocity execution & multi-layer acceleration**:
+  60-second `Progress(d)` bottleneck triage, dead-register canonicalization (`ClearDeadSlots`),
+  congruent `VIEW` bisimulation quotients, single-spec dual-engine (`BoundedMode`) SANY
+  32-bit guards, zero-spec-churn `@TLAPlusOperator` bytecode overrides (`tlc_bytecode.py`),
+  and core-budgeted LPT + coverage-deduplicated multi-cfg scheduling (`run_suite.sh`).
 - `references/tlc-setup.md` — the TLC (and on-demand Apalache) toolchain, canonical
   invocations, determinism, config keys, and scratch cleanup.
 - `references/workspace.md` — the per-repo workspace layout, the memory files, and the two
@@ -58,10 +63,10 @@ relative to this skill's directory — read the one you need, when you need it:
   modeled code flags model drift.
 
 Bundled scripts (in `scripts/`, self-locating) do the repetitive mechanical work so you
-don't reinvent it each run: `install_tlc.sh`, `run_tlc.sh`, `install_apalache.sh`,
-`run_apalache.sh`, `new_level.sh`, `status.sh`, `coverage.sh`, `anchors.sh`, and
-`get_repo.sh` (clone/track the target repo in a standalone install). Prefer them over
-hand-rolled equivalents.
+don't reinvent it each run: `install_tlc.sh`, `run_tlc.sh`, `run_suite.sh`,
+`tlc_bytecode.py`, `install_apalache.sh`, `run_apalache.sh`, `new_level.sh`, `status.sh`,
+`coverage.sh`, `anchors.sh`, and `get_repo.sh` (clone/track the target repo in a standalone
+install). Prefer them over hand-rolled equivalents.
 
 ## Command dispatch
 

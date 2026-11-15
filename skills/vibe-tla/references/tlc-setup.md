@@ -29,22 +29,35 @@ and writes `TLA_TOOLS_JAR=<path>` into `$WORKSPACE/config.env`.
 
 ## The canonical invocation
 
-Use `scripts/run_tlc.sh <module>.tla <module>.cfg` — it sources `config.env`, runs the
-module-named `.tla` (never a symlink), captures timing, and cleans scratch. By hand it is:
+Use `scripts/run_tlc.sh <module>.tla [module.cfg]` for single runs and
+`scripts/run_suite.sh <level-or-workspace-dir>` for multi-cfg or multi-level sweeps — both
+source `config.env`, stage real `.tla`/`.cfg` files into an isolated `/tmp` workdir (so
+concurrent runs never collide or dirty `02_models/`), capture timing, and clean scratch.
+See **`references/performance.md`** for the full acceleration guide.
 
 ```sh
-# from inside the level directory; MODULE name must equal the .tla basename
-java -XX:+UseParallelGC -cp "$TLA_TOOLS_JAR" tlc2.TLC \
-     -workers auto -config L2_Foo.cfg L2_Foo.tla
+# Single config (fast C1 JIT for <25k states; --coverage uses -coverage 60)
+scripts/run_tlc.sh 02_models/L2_Foo.tla --fast-jit
+scripts/run_tlc.sh 02_models/L2_Foo.tla --coverage
+
+# Scaling config with scratch-only congruent VIEW + @TLAPlusOperator overrides
+scripts/run_tlc.sh 02_models/L2_Foo.tla 02_models/L2_Foo_scale.cfg \
+    --view FooView --view-def 'FooView == <<core, obs>>' \
+    --classpath "$WORKSPACE/tools/overrides"
+
+# Multi-cfg level or full workspace (Core-budgeted LPT + Coverage-Basis Deduplication)
+scripts/run_suite.sh "$WORKSPACE"
 ```
 
-- `-workers auto` (or `-workers N`) for speed while exploring.
-- For a **violating** run, re-run with `-workers 1` — that gives deterministic distinct/
-  generated state counts and a stable trace depth, which are the numbers you cite.
+- `-workers auto` (or `-workers N`) for speed while exploring; `run_suite.sh` automatically
+  enables `OffHeapDiskFPSet` and C2 aggressive inlining on multi-worker scaling runs.
+- For a **violating** run, re-run with `--det` (`-workers 1`) — that gives deterministic
+  distinct/generated state counts and a stable trace depth, which are the numbers you cite.
 - `-deadlock` to disable deadlock detection when termination is legitimate.
 - `-dump dot states.dot` to visualize a small state graph when debugging a trace.
-- For timing the way the run log records it: `/usr/bin/time -p java … -workers 1 …` and
-  record the `real` seconds per cfg plus the whole-level aggregate.
+- For hot pure-operator bottlenecks in explicit TLC (even on headless JRE-only hosts without
+  `javac`), emit `@TLAPlusOperator` bytecode into `$WORKSPACE/tools/overrides` via
+  `scripts/tlc_bytecode.py` (`references/performance.md` §3.3).
 
 ## TLC gotchas worth knowing
 
@@ -74,6 +87,8 @@ REPO_URL=                                  # the git URL, in remote mode (empty 
 WORKSPACE_DIR=tla                          # workspace folder name (relative to REPO_ROOT)
 TLC_WORKERS=auto                           # default worker count for exploration
 TLC_TIMEOUT=1800                           # per-cfg wall-clock bound (seconds), 0 = none; run_tlc.sh enforces it when a timeout/gtimeout binary exists
+TLC_MAX_HEAP=                              # optional: explicit JVM -Xmx (e.g. 3072m); auto-sized by run_suite.sh
+TLC_CLASSPATH=                             # optional: @TLAPlusOperator override dir/jar (defaults to $WORKSPACE/tools/overrides if non-empty)
 VIBE_TLA_EFFORT=medium                     # default effort: low | medium | high (set by /vibe-tla effort)
 APALACHE_BIN=/abs/path/to/apalache-mc      # optional: resolved on demand by scripts/install_apalache.sh
 APALACHE_TIMEOUT=1800                      # optional: per-step timeout for scripts/run_apalache.sh

@@ -103,6 +103,17 @@ If node, worker, or shard identifiers are only compared with `=` and `/=` (never
 Apalache translates `Str` constants into SMT equality logic without integer arithmetic
 overhead.
 
+### 2.4 Bounded-slot symbolic queues & dead-register canonicalization
+Avoid unbounded `Seq(T)` variables when modeling FIFO buffers, replay queues, or rings:
+SMT sequence/array theory unrolling slows Z3 dramatically, and leftover payload values in
+popped slots explode the finite TLC coverage twin. Instead:
+- Model a **2-slot symbolic witness `(buf_len, buf_head, buf_tail)`** coupled with a
+  symbolic capacity `cfg_capacity \in Int /\ cfg_capacity >= 1` (allowing arbitrary gap/fill
+  arrivals up to `cfg_capacity`).
+- Canonicalize inactive slots on every transition (`buf_head' = IF len' >= 1 THEN h ELSE 0`,
+  `buf_tail' = IF len' >= 2 THEN t ELSE 0`) — cuts the `BoundedMode = TRUE` TLC coverage
+  run by `> 40x` (`references/performance.md` §2.1).
+
 ---
 
 ## 3. Mode S1 — Symbolic Bounded Model Checking (Apalache / Z3)
@@ -117,18 +128,23 @@ Apalache's Snowcat typechecker requires strict static types inside TLA+ comments
 annotations never break `run_tlc.sh`.
 
 ```tla
-\* @type: Int;
-VARIABLE globalOut
-
-\* @type: Str -> Int;
-VARIABLE connOut
-
-\* @type: Set({seq: Int, bytes: Int});
-VARIABLE completions
+VARIABLES
+    \* @type: Int;
+    globalOut,
+    \* @type: Str -> Int;
+    connOut,
+    \* @type: Set({seq: Int, bytes: Int});
+    completions
 
 \* @type: (Str, Int) => Bool;
 QueueFrame(c, sz) == ...
 ```
+
+> **SANY attachment rule (Apalache 0.63+):** Always place `@type:` **after** the
+> `CONSTANTS` / `VARIABLES` keyword, immediately above each identifier (or inline as
+> `VARIABLE (* @type: Int; *) x`) — **never** above the `VARIABLE` keyword itself, where
+> SANY attaches the comment to the preceding declaration and Snowcat reports
+> `Expected a type annotation for VARIABLE x`!
 
 Core Snowcat type forms:
 - Primitives: `Int`, `Bool`, `Str`
@@ -165,6 +181,8 @@ Core Snowcat type forms:
    known constant (`16777216 * spc + db`, `2 * quorum > N`) is linear and Z3 solves it in
    milliseconds. Multiplying, dividing, or taking modulo by **two symbolic variables**
    (`x * y`, `x % y`) enters non-linear arithmetic (`QF_NIA`) and can stall the solver.
+   Cross-multiply constant percentage/ratio thresholds instead of dividing: e.g. write
+   `used * 5 >= cap * 4` rather than `(used * 100) \div cap >= 80`.
 
 4. **No heterogeneous record unions.** Snowcat rejects unions of records with different
    field sets (e.g. `[type: {"1a"}, bal: Int] \union [type: {"1b"}, bal: Int, val: Int]`).
@@ -176,6 +194,17 @@ Core Snowcat type forms:
 
 5. **Parenthesize `SUBSET` and `DOMAIN`.** Apalache 0.63+ aligns with `tla2tools` operator
    precedence: write `(SUBSET S) \cup T` and `(DOMAIN f) .. n`, never bare `SUBSET S \cup T`.
+
+6. **Single-spec `BoundedMode` & TLC 32-bit SANY guards (`references/performance.md` §3.1).**
+   Prefer a single module parameterized by `CONSTANT BoundedMode` (`\* @type: Bool;`) so
+   TLC checks `BoundedMode = TRUE` (`--coverage`) and Apalache checks `BoundedMode = FALSE`
+   without maintaining two drifting `.tla` files. Because TLC's SANY parser runs signed
+   32-bit `Integer.parseInt` on **every decimal literal in the file** (even inside dead
+   `ELSE` branches!) and TLC's runtime `IntValue` is 32-bit:
+   - **Never** write a decimal token `> 2147483647` (e.g. `60000000000` or `4294967296`);
+     build wide constants from `<= 10^9` factors (`60 * 1000000000`, `TWO_32 * TWO_32`).
+   - Gate runtime evaluation of `U64_MAX`/`U128_MAX` behind
+     `EffMax == IF BoundedMode THEN SmallCap ELSE U64_MAX`.
 
 ### 3.3 Running Symbolic BMC
 ```sh
@@ -237,8 +266,11 @@ usually fails the Inductive Step from an unreachable pre-state `State 0`). Drive
 4. **Strengthen with a code-anchored lemma:**
    - Verify in production source (`file:line`) that the coupling actually holds across every
      code path.
-   - Add it as a named, commented conjunct (`Lemma_GlobalAccounting` citing `file:line`) to
-     `IndInv`, and re-run `scripts/run_apalache.sh inductive`.
+   - Add it as a named, commented top-level conjunct (`Lemma_GlobalAccounting` citing
+     `file:line`) to `IndInv` (flat top-level conjunctions let Apalache split `IndInv'` into
+     fast independent `QF_LIA` VCs), and re-run `scripts/run_apalache.sh inductive` (which
+     checks `base`, `step`, and `entailment` concurrently and fails fast in seconds if a
+     candidate lemma breaks `base` or `entailment`).
    - Repeat until Base, Step, and Entailment all report `NoError`.
 
 > **Anti-cheat guardrail:** Never strengthen `IndInv` (or `ConstInit`) with a predicate that

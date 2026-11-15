@@ -3,30 +3,10 @@
 # table, flagging dead actions (a guard that never holds / an action never enabled).
 # Usage:
 #   coverage.sh <Module.tla> [Module.cfg] [--all-cfgs] [--det]
-#     --all-cfgs   run coverage for every *.cfg sitting next to the module and
-#                  summarize each (instead of a single cfg)
+#     --all-cfgs   run coverage for every *.cfg sitting next to the module in parallel
+#                  and summarize each in deterministic order
 #     --det        pass --det to run_tlc.sh (-workers 1) so the per-action counts
 #                  are deterministic / citable run-to-run
-#
-# CAVEAT (violating cfgs): TLC halts at the first violation, so on a violating cfg
-# the coverage block spans only the explored PREFIX.  A 'B == 0' action there may be
-# halt-truncation rather than a never-true guard — the table warns; re-check any
-# dead flag against a non-violating cfg before trusting it.
-#
-# It does NOT re-implement the java invocation or jar resolution — it delegates to the
-# sibling scripts/run_tlc.sh (the single source of truth), captures its output, and
-# parses the TLC '-coverage' action block.  Reading that block:
-#   - a top-level '<NAME line ... of module M>: A:B' line is an ACTION; A:B is
-#     'distinct:generated' — A = states first found via this action, B = states it
-#     generated.  B == 0 (e.g. ': 0:0', or an action TLC never reports) means the action
-#     was NEVER ENABLED in any reachable state => DEAD spec, flag it.  A == 0 with B > 0
-#     (e.g. ': 0:3') only means it reached already-seen states — that is NOT dead.
-#   - lines without the ': A:B' suffix (operators/invariants like TypeOK) and indented
-#     sub-expression lines are NOT actions — ignore them for the dead check.
-# Exit non-zero if any dead action is found, so '/vibe-tla coverage' and CI can detect a
-# broken model; exit 0 if all actions fired (or if TLC produced no coverage block — warn).
-#
-# POSIX-bash, macOS bash 3.2 compatible (no associative arrays).
 set -uo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,26 +38,17 @@ DIR="$(cd "$(dirname "$TLA")" && pwd)"
 BASE="$(basename "$TLA")"
 MOD="${BASE%.tla}"
 
-# ---------------------------------------------------------------------------
-# run_one <cfg-basename>
-#   Runs coverage for one cfg via run_tlc.sh, parses the action block, prints a
-#   table, and sets DEAD_COUNT / TOTAL_ACTIONS for the caller.  Returns:
-#     0 = all actions fired      1 = at least one dead action
-#     2 = run failed             3 = ran but no coverage block (warn)
-# ---------------------------------------------------------------------------
 run_one() {
-  cfg="$1"
-  TRUNC=0
+  local cfg="$1"
+  local TRUNC=0 out rc block actions line name ab dist gen status
   echo "=== coverage: $MOD  (cfg=$cfg) ==="
   if [[ "$DET" == 1 ]]; then
-    out="$(bash "$RUN_TLC" "$DIR/$BASE" "$DIR/$cfg" --coverage --det 2>&1)"
+    out="$(bash "$RUN_TLC" "$DIR/$BASE" "$DIR/$cfg" --coverage=60 --det 2>&1)"
   else
-    out="$(bash "$RUN_TLC" "$DIR/$BASE" "$DIR/$cfg" --coverage 2>&1)"
+    out="$(bash "$RUN_TLC" "$DIR/$BASE" "$DIR/$cfg" --coverage=60 2>&1)"
   fi
   rc=$?
   if [[ $rc -ne 0 ]]; then
-    # TLC may exit non-zero on an invariant violation yet STILL emit a coverage block;
-    # only bail if there is genuinely nothing to parse.
     if ! printf '%s\n' "$out" | grep -q "coverage statistics at"; then
       echo "  TLC run failed (exit $rc) and produced no coverage block. Tail:"
       printf '%s\n' "$out" | tail -8 | sed 's/^/    /'
@@ -88,11 +59,9 @@ run_one() {
     TRUNC=1
   fi
 
-  # Slice from the coverage banner to end of output, then keep only the top-level
-  # action headers: lines that start with '<' AND end with ': <digits>:<digits>'.
-  # That suffix is what distinguishes an ACTION from an operator/invariant header
-  # (e.g. '<TypeOK ...>' has no ': A:B') and from indented sub-expression lines.
-  block="$(printf '%s\n' "$out" | awk '/coverage statistics at/{f=1} f')"
+  # Extract ONLY the final `coverage statistics at` block so intermediate periodic
+  # dumps never duplicate `<Action ...>: d:g` rows.
+  block="$(printf '%s\n' "$out" | awk '/coverage statistics at/{buf=""; f=1} f{buf = buf $0 "\n"} END{printf "%s", buf}')"
   if [[ -z "$block" ]]; then
     echo "  WARNING: no TLC coverage block found (did the run enable -coverage?)."
     echo "  Treating as inconclusive — not flagging dead actions."
@@ -111,15 +80,12 @@ run_one() {
   printf '  %-28s %10s %10s  %s\n' "ACTION" "distinct" "generated" "status"
   printf '  %-28s %10s %10s  %s\n' "------" "--------" "---------" "------"
 
-  TOTAL_ACTIONS=0
-  DEAD_COUNT=0
-  # Read line by line (bash 3.2: no mapfile / no assoc arrays).
+  local TOTAL_ACTIONS=0
+  local DEAD_COUNT=0
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    # name = token right after '<', up to the first space.
     name="${line#<}"
     name="${name%%[[:space:]]*}"
-    # A:B = the field after the final ': '.
     ab="${line##*: }"
     dist="${ab%%:*}"
     gen="${ab##*:}"
@@ -152,45 +118,65 @@ EOF
   return 0
 }
 
-# ---------------------------------------------------------------------------
-# Drive one cfg, or every cfg next to the module.
-# ---------------------------------------------------------------------------
-overall=0      # 0 = clean, 1 = dead found somewhere, 2 = a run failed
+overall=0
 any_warn=0
 
-drive() {
-  cfg="$1"
-  run_one "$cfg"
-  r=$?
-  case "$r" in
+fold_rc() {
+  case "$1" in
     0) : ;;
-    1) overall=1 ;;
+    1) [[ "$overall" -lt 1 ]] && overall=1 ;;
     2) [[ "$overall" -lt 2 ]] && overall=2 ;;
     3) any_warn=1 ;;
   esac
-  echo
 }
 
 if [[ "$ALL_CFGS" == 1 ]]; then
-  cfgs=""
+  CFG_LIST=()
   for f in "$DIR"/*.cfg; do
     [[ -e "$f" ]] || continue
-    cfgs="$cfgs $(basename "$f")"
+    CFG_LIST+=("$(basename "$f")")
   done
-  [[ -n "$cfgs" ]] || die "no *.cfg found next to module: $DIR"
-  echo "### --all-cfgs: coverage for every cfg next to $MOD"
+  [[ ${#CFG_LIST[@]} -gt 0 ]] || die "no *.cfg found next to module: $DIR"
+  echo "### --all-cfgs: parallel coverage for every cfg next to $MOD"
   echo
-  for c in $cfgs; do
-    drive "$c"
+
+  COV_TMP="$(mktemp -d "${TMPDIR:-/tmp}/tlc_cov.XXXXXX")"
+  PIDS=()
+  trap 'for p in ${PIDS[@]+"${PIDS[@]}"}; do kill "$p" 2>/dev/null || true; done; rm -rf "$COV_TMP" 2>/dev/null || true' EXIT INT TERM
+
+  idx=0
+  for c in "${CFG_LIST[@]}"; do
+    (
+      run_one "$c" >"$COV_TMP/$idx.out" 2>&1
+      echo $? >"$COV_TMP/$idx.rc"
+    ) &
+    PIDS+=("$!")
+    idx=$((idx + 1))
   done
+
+  for p in "${PIDS[@]}"; do
+    wait "$p" 2>/dev/null || true
+  done
+
+  idx=0
+  for _ in "${CFG_LIST[@]}"; do
+    [[ -f "$COV_TMP/$idx.out" ]] && cat "$COV_TMP/$idx.out"
+    echo
+    r="$(cat "$COV_TMP/$idx.rc" 2>/dev/null || echo 2)"
+    fold_rc "$r"
+    idx=$((idx + 1))
+  done
+
+  rm -rf "$COV_TMP" 2>/dev/null || true
+  trap - EXIT INT TERM
 else
   if [[ -n "$CFG" ]]; then cfg="$(basename "$CFG")"; else cfg="$MOD.cfg"; fi
   [[ -e "$DIR/$cfg" ]] || die "config not found next to module: $DIR/$cfg"
-  drive "$cfg"
+  run_one "$cfg"
+  fold_rc "$?"
+  echo
 fi
 
-# Exit policy: dead action(s) anywhere => non-zero (CI / 'coverage' fails the model).
-# A failed run is the worst outcome; a warn-only (no coverage block) stays exit 0.
 case "$overall" in
   2) echo "RESULT: a TLC run failed — see above."; exit 3 ;;
   1) echo "RESULT: dead action(s) found — fix the model (a never-enabled action is usually a guard that never holds)."; exit 1 ;;

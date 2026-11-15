@@ -181,31 +181,55 @@ cfgs you run, and how hard you push TLC.
    the top; properties express the goal. Size the model by **effort**: at `low`, the primary
    `.cfg` only at the smallest sizes that still exercise the concern; at `high`, add scaling
    cfgs (larger N / longer ranges), extra scenario cfgs, or escalate to symbolic parameter
-   ranges / inductive proofs (`symbolic.md`). For symbolic specs, include Snowcat
-   `\* @type: ...;` comments and bind wide numeric domains via `\in Int` + inequalities
-   (never wide `a..b` set ranges — see `symbolic.md` §3.2).
+   ranges / inductive proofs (`symbolic.md`). **Author for fast execution up front**
+   (`references/performance.md` §2–§3):
+   - Zero logically inactive registers/slots on phase or buffer-empty transitions
+     (`ClearDeadSlots` — avoids `10x–45x` phantom state multiplication).
+   - Project away write-only trace logs or history counters on scaling runs via a congruent
+     `VIEW` (`performance.md` §2.2).
+   - For symbolic specs, prefer a **single dual-engine `.tla` module** gated by
+     `CONSTANT BoundedMode` (`BoundedMode = TRUE` in `.cfg` for fast TLC `--coverage`,
+     `BoundedMode = FALSE` in `ConstInit` for Apalache), include Snowcat `\* @type: ...;`
+     comments, bind wide numeric domains via `\in Int` + inequalities (never wide `a..b` set
+     ranges — see `symbolic.md` §3.2), and **never write raw decimal literals `> 2147483647`**
+     anywhere in the file (factor via `60 * 1000000000` / `TWO_32 * TWO_32` and gate runtime
+     caps behind `IF BoundedMode THEN ...` so TLC's 32-bit SANY parser and `IntValue` never
+     overflow — `performance.md` §3.1).
 
-6. **Run the solver(s) until the spec executes cleanly.**
+6. **Run the solver(s) until the spec executes cleanly — and triage slow runs at 60s.**
+   - **60-second bottleneck triage (`references/performance.md` §1):** Never wait blindly
+     for `TLC_TIMEOUT=1800` when a run crawls. Inspect the first `Progress(d)` line at
+     `30–60s`: if throughput is `< 100k states/min/worker`, fix the AST hotspot (simplify
+     algebra, emit a zero-spec-churn `@TLAPlusOperator` bytecode override via
+     `scripts/tlc_bytecode.py`, or move wide math to Apalache `QF_LIA`); if distinct states
+     grow past `2M` with a doubling queue, stop immediately and apply `ClearDeadSlots`, a
+     congruent `VIEW`, or Skolem + Apalache (`symbolic.md`).
    - **Explicit-state path (default when finite sizes are faithful & tractable):** invoke
-     `scripts/run_tlc.sh 02_models/L{n}_{Module}.tla [cfg]`. Iterate on parse/semantic
-     errors until it runs clean — a model that doesn't run is not evidence. Run every cfg
-     you commit; for a violating run, re-run with `--det` (`-workers 1`) for deterministic
-     counts; run once with `--coverage` — at **every** effort level, the extra run is
-     cheap — and confirm **every action fired** (a zero-coverage action is dead spec — a
-     guard that never holds, often a real modeling bug). On a **violating** cfg, TLC halts
-     at the violation, so coverage spans only the explored prefix — confirm any zero-coverage
-     action against a non-violating cfg before treating it as dead.
+     `scripts/run_tlc.sh 02_models/L{n}_{Module}.tla [cfg]` (`--fast-jit` for `< 25k`
+     states), or when checking **multiple `.cfg`s / scaling rounds**, run
+     `scripts/run_suite.sh 02_models/L{n}_{Module}.tla` so primary `< 2M`-state `.cfg`s
+     discharge `-coverage 60` while heavy `>= 2M`-state scaling `.cfg`s run concurrently from
+     $t = 0$ on multi-worker `OffHeapDiskFPSet` (with automatic `-coverage 60` failsafe if
+     any action stayed at `0`). Iterate on parse/semantic errors until it runs clean — a
+     model that doesn't run is not evidence. For a violating run, re-run with `--det`
+     (`-workers 1`) for deterministic counts; confirm **every action fired** (a zero-coverage
+     action is dead spec — a guard that never holds, often a real modeling bug). On a
+     **violating** cfg, TLC halts at the violation, so coverage spans only the explored
+     prefix — confirm any zero-coverage action against a non-violating cfg before treating it
+     as dead.
    - **Symbolic path (when Cartesian explosion hits, or TLC times out at minimum faithful
      bounds — `references/symbolic.md`):** run `scripts/install_apalache.sh "$WORKSPACE"`
      once if `APALACHE_BIN` is not yet configured, check types via
      `scripts/run_apalache.sh typecheck 02_models/L{n}_{Module}.tla`, then run either
      **Symbolic BMC** (`scripts/run_apalache.sh bmc ... --inv=<Inv> --length=<K>`) for
      bounded/combinatorial checks or **Symbolic Inductive Invariants**
-     (`scripts/run_apalache.sh inductive ... --indinv=<IndInv> --inv=<Safety>`) driving the
-     Counterexample-to-Induction (CTI) strengthening loop (`symbolic.md` §4) for unbounded
-     horizons. **Guard against vacuous symbolic PASS** (`symbolic.md` §5.1): pair symbolic
-     verification with a small-domain TLC `--coverage` run on the finite twin (or symbolic
-     action-witness checks) so no action is dead spec.
+     (`scripts/run_apalache.sh inductive ... --indinv=<IndInv> --inv=<Safety>` — runs
+     `base`, `step`, and `entailment` in parallel with fail-fast cancellation for rapid CTI
+     iterations; keep arithmetic in `QF_LIA` by cross-multiplying constant ratios,
+     `performance.md` §3.2) for unbounded horizons. **Guard against vacuous symbolic PASS**
+     (`symbolic.md` §5.1): pair symbolic verification with a small-domain TLC `--coverage`
+     run on `BoundedMode = TRUE` of the same module (or symbolic action-witness checks) so
+     no action is dead spec.
    Record exact commands, state counts or symbolic bounds/outcomes, coverage summary, and
    wall-clock runtime in `03_run_log.md`. Clean scratch after (`run_tlc.sh` and
    `run_apalache.sh` do this automatically).
@@ -364,10 +388,13 @@ for the definitions and the report format.
 1. **Select levels.** From `MEMORY.md`, take the level(s) matching `[keywords]` (or the whole
    workspace if none).
 
-2. **Model coverage (automatic).** For each, run
-   `scripts/coverage.sh 02_models/L{n}_{Module}.tla [cfg]` — it runs TLC with `--coverage` and
-   reports each action's hit count, flagging **zero-coverage actions** (dead spec). At `high`
-   effort, also run the scaling cfgs.
+2. **Model coverage (automatic).** For a single level/config, run
+   `scripts/coverage.sh 02_models/L{n}_{Module}.tla [cfg]` (`--all-cfgs` for parallel
+   per-cfg tables); for multi-level sweeps or modules with heavy `>= 2M`-state scaling
+   cfgs, prefer `scripts/run_suite.sh <level-or-workspace-dir>` (core-budgeted LPT
+   scheduling + coverage-basis deduplication with automatic `-coverage 60` failsafe —
+   `references/performance.md` §4). Flag **zero-coverage actions** (`generated == 0` = dead
+   spec). At `high` effort, also run the scaling cfgs.
 
 3. **Fidelity & code coverage (from the model).** From each level's `var ↔ code` map and
    `01_reasoning.md`, summarize: transitions modeled vs marked `UNCLEAR`/`TODO`; which
